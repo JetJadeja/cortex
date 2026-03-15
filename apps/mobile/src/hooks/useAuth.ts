@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { getUserProfile, UserProfile } from "../lib/users";
+import { getProfile, Profile } from "../lib/profiles";
 
 interface AuthState {
   session: Session | null;
-  profile: UserProfile | null;
+  profile: Profile | null;
   isLoading: boolean;
   isNewUser: boolean;
 }
@@ -25,7 +25,7 @@ export function useAuth() {
     }
 
     try {
-      const profile = await getUserProfile(session.user.id);
+      const profile = await getProfile(session.user.id);
       const isNewUser = !profile;
       setState({ session, profile, isLoading: false, isNewUser });
     } catch {

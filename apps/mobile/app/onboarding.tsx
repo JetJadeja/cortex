@@ -9,12 +9,13 @@ import {
 } from "react-native";
 import { AuthContext } from "./_layout";
 import { Button } from "../src/components/Button";
-import { createUserProfile } from "../src/lib/users";
+import { createProfile } from "../src/lib/profiles";
 import { colors, spacing, fontSize, borderRadius } from "../src/constants/theme";
 
 export default function OnboardingScreen() {
   const auth = useContext(AuthContext);
   const [displayName, setDisplayName] = useState("");
+  const [age, setAge] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,17 +25,19 @@ export default function OnboardingScreen() {
       return;
     }
 
+    const parsedAge = age.trim() ? parseInt(age.trim(), 10) : null;
+    if (age.trim() && (isNaN(parsedAge as number) || (parsedAge as number) < 1)) {
+      setError("Please enter a valid age.");
+      return;
+    }
+
     if (!auth?.session) return;
 
     setError("");
     setIsSubmitting(true);
 
     try {
-      await createUserProfile(
-        auth.session.user.id,
-        auth.session.user.email ?? "",
-        displayName.trim(),
-      );
+      await createProfile(auth.session.user.id, displayName.trim(), parsedAge);
       await auth.refreshProfile();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
@@ -51,7 +54,7 @@ export default function OnboardingScreen() {
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Welcome to Cortex</Text>
-        <Text style={styles.subtitle}>What should we call you?</Text>
+        <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
 
         <TextInput
           style={styles.input}
@@ -62,6 +65,15 @@ export default function OnboardingScreen() {
           autoCapitalize="words"
           autoComplete="name"
           autoFocus
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Age (optional)"
+          placeholderTextColor={colors.textMuted}
+          value={age}
+          onChangeText={setAge}
+          keyboardType="number-pad"
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
