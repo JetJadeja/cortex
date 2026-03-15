@@ -4,12 +4,15 @@
   "private": true,
   "workspaces": [
     "apps/mobile",
+    "apps/web",
     "server"
   ],
   "scripts": {
     "mobile": "npm run start --workspace=apps/mobile",
     "server": "npm run dev --workspace=server",
     "server:build": "npm run build --workspace=server",
-    "server:start": "npm run start --workspace=server"
+    "server:start": "npm run start --workspace=server",
+    "web": "npm run dev --workspace=apps/web",
+    "web:build": "npm run build --workspace=apps/web"
   }
 }
