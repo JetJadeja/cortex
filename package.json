@@ -1,0 +1,15 @@
+{
+  "name": "cortex",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/mobile",
+    "server"
+  ],
+  "scripts": {
+    "mobile": "npm run start --workspace=apps/mobile",
+    "server": "npm run dev --workspace=server",
+    "server:build": "npm run build --workspace=server",
+    "server:start": "npm run start --workspace=server"
+  }
+}

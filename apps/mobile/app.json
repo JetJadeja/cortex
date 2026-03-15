@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Cortex",
+    "slug": "cortex",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cortex.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Cortex needs microphone access to record audio for transcription."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "com.cortex.app",
+      "permissions": ["RECORD_AUDIO"]
+    },
+    "scheme": "cortex",
+    "plugins": ["expo-router"]
+  }
+}
