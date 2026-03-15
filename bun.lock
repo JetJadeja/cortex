@@ -12,6 +12,7 @@
         "expo": "~51.0.0",
         "expo-av": "~14.0.0",
         "expo-router": "~3.5.0",
+        "expo-secure-store": "^55.0.8",
         "expo-status-bar": "~1.12.0",
         "react": "18.2.0",
         "react-native": "0.74.0",
@@ -1050,6 +1051,8 @@
     "expo-modules-core": ["expo-modules-core@1.12.26", "", { "dependencies": { "invariant": "^2.2.4" } }, "sha512-y8yDWjOi+rQRdO+HY+LnUlz8qzHerUaw/LUjKPU/mX8PRXP4UUPEEp5fjAwBU44xjNmYSHWZDwet4IBBE+yQUA=="],
 
     "expo-router": ["expo-router@3.5.24", "", { "dependencies": { "@expo/metro-runtime": "3.2.3", "@expo/server": "^0.4.0", "@radix-ui/react-slot": "1.0.1", "@react-navigation/bottom-tabs": "~6.5.7", "@react-navigation/native": "~6.1.6", "@react-navigation/native-stack": "~6.9.12", "expo-splash-screen": "0.27.7", "react-native-helmet-async": "2.0.4", "schema-utils": "^4.0.1" }, "peerDependencies": { "@react-navigation/drawer": "^6.5.8", "expo": "*", "expo-constants": "*", "expo-linking": "*", "expo-status-bar": "*", "react-native-reanimated": "*", "react-native-safe-area-context": "*", "react-native-screens": "*" }, "optionalPeers": ["@react-navigation/drawer", "react-native-reanimated"] }, "sha512-wFi+PIUrOntF5cgg0PgBMlkxEZlWedIv5dWnPFEzN6Tr3A3bpsqdDLgOEIwvwd+pxn5DLzykTmg9EkQ1pPGspw=="],
+
+    "expo-secure-store": ["expo-secure-store@55.0.8", "", { "peerDependencies": { "expo": "*" } }, "sha512-8w9tQe8U6oRo5YIzqCqVhRrOnfoODNDoitBtLXEx+zS6WLUnkRq5kH7ViJuOgiM7PzLr9pvAliRiDOKyvFbTuQ=="],
 
     "expo-splash-screen": ["expo-splash-screen@0.27.7", "", { "dependencies": { "@expo/prebuild-config": "7.0.9" }, "peerDependencies": { "expo": "*" } }, "sha512-s+eGcG185878nixlrjhhLD6UDYrvoqBUaBkIEozBVWFg3pkdsKpONPiUAco4XR3h7I/9ODq4quN28RJLFO+s0Q=="],
 
