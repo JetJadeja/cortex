@@ -8,6 +8,7 @@
     "server"
   ],
   "scripts": {
+    "dev": "./dev.sh",
     "mobile": "bun run --filter=cortex-mobile start",
     "server": "bun run --filter=cortex-server dev",
     "server:build": "bun run --filter=cortex-server build",

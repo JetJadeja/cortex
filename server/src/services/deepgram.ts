@@ -1,6 +1,15 @@
-import { createClient } from "@deepgram/sdk";
+import { createClient, DeepgramClient } from "@deepgram/sdk";
 
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY ?? "");
+let deepgram: DeepgramClient | null = null;
+
+function getClient(): DeepgramClient {
+  if (!deepgram) {
+    const key = process.env.DEEPGRAM_API_KEY;
+    if (!key) throw new Error("DEEPGRAM_API_KEY is not set");
+    deepgram = createClient(key);
+  }
+  return deepgram;
+}
 
 interface TranscriptionResult {
   transcript: string;
@@ -14,7 +23,7 @@ interface TranscriptionResult {
 }
 
 export async function transcribeAudio(audioBuffer: Buffer, mimetype: string): Promise<TranscriptionResult> {
-  const { result } = await deepgram.listen.prerecorded.transcribeFile(audioBuffer, {
+  const { result } = await getClient().listen.prerecorded.transcribeFile(audioBuffer, {
     model: "nova-2",
     language: "en",
     smart_format: true,
