@@ -11,9 +11,9 @@ export interface Concept {
   explanation: string;
   type: ConceptType;
   source_context: string;
-  quiz_interval: number;
-  quiz_ease_factor: number;
-  quiz_next_review_date: string;
+  quiz_due_at: string;
+  quiz_stability: number;
+  quiz_difficulty: number;
   priority: ConceptPriority;
   created_at: string;
 }
@@ -68,7 +68,7 @@ export async function getAllConcepts(userId: string): Promise<Concept[]> {
 }
 
 export async function createConcept(
-  concept: Omit<Concept, "id" | "created_at" | "quiz_interval" | "quiz_ease_factor" | "quiz_next_review_date">,
+  concept: Omit<Concept, "id" | "created_at" | "quiz_due_at" | "quiz_stability" | "quiz_difficulty">,
 ): Promise<Concept> {
   const { data, error } = await supabase
     .from("concepts")
@@ -82,7 +82,7 @@ export async function createConcept(
 
 export async function updateConcept(
   conceptId: string,
-  updates: Partial<Pick<Concept, "title" | "explanation" | "priority" | "quiz_interval" | "quiz_ease_factor" | "quiz_next_review_date">>,
+  updates: Partial<Pick<Concept, "title" | "explanation" | "priority" | "quiz_due_at" | "quiz_stability" | "quiz_difficulty">>,
 ): Promise<Concept> {
   const { data, error } = await supabase
     .from("concepts")

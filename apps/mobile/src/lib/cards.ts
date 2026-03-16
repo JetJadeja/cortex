@@ -9,11 +9,9 @@ export interface Card {
   card_type: CardType;
   front: string;
   back: string;
-  interval: number;
-  ease_factor: number;
-  next_review_date: string;
-  times_reviewed: number;
-  times_correct: number;
+  due_at: string;
+  stability: number;
+  difficulty: number;
   created_at: string;
 }
 
@@ -48,8 +46,8 @@ export async function getDueCards(userId: string): Promise<Card[]> {
     .from("cards")
     .select("*")
     .eq("user_id", userId)
-    .lte("next_review_date", new Date().toISOString())
-    .order("next_review_date", { ascending: true });
+    .lte("due_at", new Date().toISOString())
+    .order("due_at", { ascending: true });
 
   if (error) throw error;
   return data;
@@ -67,7 +65,7 @@ export async function getAllCards(userId: string): Promise<Card[]> {
 }
 
 export async function createCard(
-  card: Omit<Card, "id" | "created_at" | "interval" | "ease_factor" | "next_review_date" | "times_reviewed" | "times_correct">,
+  card: Omit<Card, "id" | "created_at" | "due_at" | "stability" | "difficulty">,
 ): Promise<Card> {
   const { data, error } = await supabase
     .from("cards")
@@ -81,7 +79,7 @@ export async function createCard(
 
 export async function updateCard(
   cardId: string,
-  updates: Partial<Pick<Card, "front" | "back" | "interval" | "ease_factor" | "next_review_date" | "times_reviewed" | "times_correct">>,
+  updates: Partial<Pick<Card, "front" | "back" | "due_at" | "stability" | "difficulty">>,
 ): Promise<Card> {
   const { data, error } = await supabase
     .from("cards")

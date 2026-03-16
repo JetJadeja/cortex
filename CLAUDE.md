@@ -4,7 +4,7 @@ Voice-first knowledge retention app. The problem: you read constantly — newsle
 
 ## How It Works
 
-You read something, open Cortex, and explain what you just learned out loud. The app records you, transcribes it via Deepgram, and sends the transcript to Claude. Claude extracts every discrete concept and generates typed review cards. Over time you build a personal knowledge base of everything you've ever read, and spaced repetition (SM-2) ensures it sticks in long-term memory.
+You read something, open Cortex, and explain what you just learned out loud. The app records you, transcribes it via Deepgram, and sends the transcript to Claude. Claude extracts every discrete concept and generates typed review cards. Over time you build a personal knowledge base of everything you've ever read, and spaced repetition (FSRS) ensures it sticks in long-term memory.
 
 The voice-first mechanic is the forcing function — if you can't explain it clearly out loud, you didn't understand it, and the app catches that gap. It trains both retention and verbal articulation simultaneously.
 
@@ -18,7 +18,7 @@ The voice-first mechanic is the forcing function — if you can't explain it cle
 
 - **Sessions** — each recording: id, timestamp, transcript, auto-detected source type (book/article/tweet/conversation/other), audio path.
 - **Concepts** — extracted from sessions. Each has a title, explanation, and type: `definition`, `fact`, `framework`, `principle`, or `connection`. Links back to source session.
-- **Cards** — generated from concepts. Types: `flashcard` (tap-reveal for terms/facts), `explain_aloud` (say it out loud, Claude scores), `scenario` (situational prompt for principles/frameworks), `connection` (how do X and Y relate?). Carries SM-2 metadata: interval, ease_factor, next_review_date, times_reviewed, times_correct, priority (core/normal).
+- **Cards** — generated from concepts. Types: `flashcard` (tap-reveal for terms/facts), `explain_aloud` (say it out loud, Claude scores), `scenario` (situational prompt for principles/frameworks), `connection` (how do X and Y relate?). Carries FSRS metadata: `due_at`, `stability`, `difficulty`.
 - **Concept Links** — cross-session connections. After each new session, Claude checks the top ~15 most similar existing concepts and flags meaningful connections, not shallow overlaps.
 - **Review History** — card_id, timestamp, response_quality (1-4), was_voice_review.
 
@@ -69,7 +69,7 @@ The voice-first mechanic is the forcing function — if you can't explain it cle
 ## Testing
 
 - Use Vitest for server tests, Jest + React Native Testing Library for mobile.
-- Test business logic (SM-2 algorithm, card generation parsing), not UI layout.
+- Test business logic (FSRS algorithm, card generation parsing), not UI layout.
 - Run `bun test` before committing.
 
 ## Git
@@ -91,7 +91,7 @@ This repo may be used with `codex-exec` for automated code review. When asked to
 
 - Supabase handles all CRUD. Express server only handles AI orchestration (`/process-transcript`, `/evaluate-review`).
 - All data flows: mobile → Supabase for persistence, mobile → Express for AI processing.
-- Spaced repetition (SM-2) runs client-side. The algorithm is deterministic and doesn't need a server.
+- Spaced repetition (FSRS) runs server-side. Two tables do all the work: `cards` (FSRS state) and `review_history` (append-only log). Everything else derived at request time.
 - Cross-linking uses keyword similarity against existing concepts (not embeddings for v1).
 - Voice review evaluation sends audio → Deepgram → transcript → Claude for scoring.
 

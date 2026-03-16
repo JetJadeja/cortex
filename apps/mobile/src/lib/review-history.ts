@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 
 export type ReviewType = "card" | "quiz";
+export type ReviewPhase = 1 | 2;
 
 export interface ReviewEntry {
   id: string;
@@ -12,7 +13,8 @@ export interface ReviewEntry {
   confidence_rating: number;
   ai_score: number | null;
   was_voice: boolean;
-  was_due: boolean;
+  phase: ReviewPhase;
+  schedule_applied: boolean;
   created_at: string;
 }
 
