@@ -48,18 +48,17 @@ export async function extractConcepts(transcript: string): Promise<ExtractedConc
   return result.concepts;
 }
 
-export async function generateHaikuSummary(transcript: string): Promise<string> {
-  const prompt = loadPrompt("haiku-summary", { transcript });
+export async function generateRecordingSummary(transcript: string): Promise<string> {
+  const prompt = loadPrompt("recording-summary", { transcript });
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 128,
+    max_tokens: 100,
     messages: [{ role: "user", content: prompt }],
   });
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";
-  const result = JSON.parse(text) as { summary: string };
-  return result.summary;
+  return text.trim();
 }
 
 export async function evaluateReview(
