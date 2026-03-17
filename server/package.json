@@ -8,11 +8,12 @@
     "start": "bun dist/index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0",
+    "@anthropic-ai/sdk": "^0.79.0",
     "@deepgram/sdk": "^3.5.0",
     "@supabase/supabase-js": "^2.99.1",
     "cors": "^2.8.5",
     "express": "^4.19.0",
+    "openai": "^6.31.0",
     "p-queue": "^9.1.0",
     "ts-fsrs": "^5.2.3"
   },
