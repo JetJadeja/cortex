@@ -3,6 +3,7 @@ import { extractConcepts } from "../services/claude";
 import {
   writeConceptsAndCards,
   updateSessionStatus,
+  clearSessionData,
 } from "../services/recording";
 
 const queue = new PQueue({ concurrency: 2 });
@@ -40,6 +41,7 @@ async function processJob(
         `Session ${sessionId} failed (attempt ${attempt}), retrying:`,
         message,
       );
+      await clearSessionData(sessionId);
       return processJob(userId, sessionId, transcript, attempt + 1);
     }
 

@@ -1,15 +1,14 @@
 import { supabase } from "../lib/supabase";
+import { generateEmbedding, generateEmbeddings, buildEmbedText } from "./embedding";
+import { deduplicateCard, DedupDecision } from "./dedup";
 
 interface ConceptInput {
   title: string;
   explanation: string;
-  type: string;
-  source_context: string;
   cards: CardInput[];
 }
 
 interface CardInput {
-  card_type: string;
   front: string;
   back: string;
 }
@@ -53,11 +52,44 @@ export async function getPendingSessions(): Promise<
   return data;
 }
 
+export async function clearSessionData(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from("concepts")
+    .delete()
+    .eq("session_id", sessionId);
+
+  if (error) throw error;
+}
+
 export async function writeConceptsAndCards(
   userId: string,
   sessionId: string,
   concepts: ConceptInput[],
 ): Promise<void> {
+  const allEmbedTexts: string[] = [];
+  const cardIndex: Array<{ conceptIdx: number; cardIdx: number }> = [];
+
+  for (let ci = 0; ci < concepts.length; ci++) {
+    for (let ki = 0; ki < concepts[ci].cards.length; ki++) {
+      const card = concepts[ci].cards[ki];
+      allEmbedTexts.push(buildEmbedText(card.front, card.back, concepts[ci].title));
+      cardIndex.push({ conceptIdx: ci, cardIdx: ki });
+    }
+  }
+
+  let allEmbeddings: Array<number[] | null>;
+  try {
+    const results = await generateEmbeddings(allEmbedTexts);
+    allEmbeddings = results;
+  } catch (err) {
+    console.error(
+      "Batch embedding failed, falling back to per-card embedding:",
+      err instanceof Error ? err.message : err,
+    );
+    allEmbeddings = allEmbedTexts.map(() => null);
+  }
+
+  let embeddingIdx = 0;
   for (const concept of concepts) {
     const { data: inserted, error: conceptError } = await supabase
       .from("concepts")
@@ -66,28 +98,213 @@ export async function writeConceptsAndCards(
         session_id: sessionId,
         title: concept.title,
         explanation: concept.explanation,
-        type: concept.type,
-        source_context: concept.source_context,
       })
       .select("id")
       .single();
 
     if (conceptError) throw conceptError;
 
-    if (concept.cards.length > 0) {
-      const cardRows = concept.cards.map((card) => ({
-        user_id: userId,
-        concept_id: inserted.id,
-        card_type: card.card_type,
-        front: card.front,
-        back: card.back,
-      }));
-
-      const { error: cardsError } = await supabase
-        .from("cards")
-        .insert(cardRows);
-
-      if (cardsError) throw cardsError;
+    let cardsAdded = 0;
+    for (const card of concept.cards) {
+      const embedding = allEmbeddings[embeddingIdx] ?? null;
+      embeddingIdx++;
+      const action = await processCardWithDedup(
+        userId,
+        sessionId,
+        inserted.id,
+        concept.title,
+        card,
+        embedding,
+      );
+      if (action === "add" || action === "merge") cardsAdded++;
     }
+
+    if (cardsAdded === 0) {
+      await supabase.from("concepts").delete().eq("id", inserted.id);
+    }
+  }
+}
+
+async function processCardWithDedup(
+  userId: string,
+  sessionId: string,
+  conceptId: string,
+  conceptTitle: string,
+  card: CardInput,
+  precomputedEmbedding: number[] | null,
+): Promise<"add" | "discard" | "merge"> {
+  let embedding = precomputedEmbedding;
+
+  if (embedding === null) {
+    try {
+      const embedText = buildEmbedText(card.front, card.back, conceptTitle);
+      embedding = await generateEmbedding(embedText);
+    } catch (err) {
+      console.error(
+        `Embedding failed for card "${card.front}":`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  if (embedding === null) {
+    await insertCard(userId, conceptId, card.front, card.back, null);
+    await logDedupDecision(userId, sessionId, card, {
+      action: "add",
+      mergeTargetId: null,
+      mergedBack: null,
+      reason: "Embedding failed, inserted without dedup",
+      bestSimilarity: null,
+    });
+    return "add";
+  }
+
+  try {
+    const decision = await deduplicateCard(
+      userId,
+      card.front,
+      card.back,
+      conceptTitle,
+      embedding,
+    );
+
+    const effective = await applyDedupDecision(userId, conceptId, card, embedding, decision);
+    await logDedupDecision(userId, sessionId, card, effective);
+    return effective.action;
+  } catch (err) {
+    console.error(
+      `Dedup failed for card "${card.front}", inserting with embedding:`,
+      err instanceof Error ? err.message : err,
+    );
+    await insertCard(userId, conceptId, card.front, card.back, embedding);
+    await logDedupDecision(userId, sessionId, card, {
+      action: "add",
+      mergeTargetId: null,
+      mergedBack: null,
+      reason: "Dedup failed, inserted with embedding",
+      bestSimilarity: null,
+    });
+    return "add";
+  }
+}
+
+async function applyDedupDecision(
+  userId: string,
+  conceptId: string,
+  card: CardInput,
+  embedding: number[],
+  decision: DedupDecision,
+): Promise<DedupDecision> {
+  switch (decision.action) {
+    case "add":
+      await insertCard(userId, conceptId, card.front, card.back, embedding);
+      return decision;
+
+    case "discard":
+      return decision;
+
+    case "merge": {
+      if (!decision.mergeTargetId || !decision.mergedBack) {
+        await insertCard(userId, conceptId, card.front, card.back, embedding);
+        return {
+          ...decision,
+          action: "add",
+          reason: "Merge missing target or text, fell back to add",
+        };
+      }
+
+      const { data: existing } = await supabase
+        .from("cards")
+        .select("front, concepts(title)")
+        .eq("id", decision.mergeTargetId)
+        .single();
+
+      const existingFront = existing?.front ?? card.front;
+      const concept = Array.isArray(existing?.concepts)
+        ? existing.concepts[0]
+        : existing?.concepts;
+      const existingConceptTitle = (concept as { title: string } | null)?.title ?? "";
+
+      const mergeEmbedText = buildEmbedText(
+        existingFront,
+        decision.mergedBack,
+        existingConceptTitle,
+      );
+      const mergeEmbedding = await generateEmbedding(mergeEmbedText);
+      const updated = await updateCardMerge(
+        decision.mergeTargetId,
+        decision.mergedBack,
+        mergeEmbedding,
+      );
+
+      if (!updated) {
+        await insertCard(userId, conceptId, card.front, card.back, embedding);
+        return {
+          ...decision,
+          action: "add",
+          reason: "Merge target was deleted, fell back to add",
+        };
+      }
+
+      return decision;
+    }
+  }
+}
+
+async function insertCard(
+  userId: string,
+  conceptId: string,
+  front: string,
+  back: string,
+  embedding: number[] | null,
+): Promise<void> {
+  const row: Record<string, unknown> = {
+    user_id: userId,
+    concept_id: conceptId,
+    front,
+    back,
+  };
+  if (embedding) {
+    row.embedding = embedding;
+  }
+
+  const { error } = await supabase.from("cards").insert(row);
+  if (error) throw error;
+}
+
+async function updateCardMerge(
+  cardId: string,
+  newBack: string,
+  newEmbedding: number[],
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("cards")
+    .update({ back: newBack, embedding: newEmbedding })
+    .eq("id", cardId)
+    .select("id");
+
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+async function logDedupDecision(
+  userId: string,
+  sessionId: string,
+  card: CardInput,
+  decision: DedupDecision,
+): Promise<void> {
+  const { error } = await supabase.from("dedup_log").insert({
+    user_id: userId,
+    session_id: sessionId,
+    new_card_front: card.front,
+    new_card_back: card.back,
+    action: decision.action,
+    matched_card_id: decision.mergeTargetId,
+    similarity: decision.bestSimilarity,
+    reason: decision.reason,
+  });
+
+  if (error) {
+    console.error("Failed to log dedup decision:", error);
   }
 }
