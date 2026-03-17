@@ -1,6 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Audio, AVPlaybackStatus } from "expo-av";
-import { requestPermissions, startRecording, stopRecording } from "../lib/audio";
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+} from "expo-audio";
+import { requestPermissions, configureAudioSession } from "../lib/audio";
 
 const MAX_LEVELS = 80;
 const FRAME_MS = 25;
@@ -16,12 +20,17 @@ interface UseRecorderReturn {
 }
 
 export function useRecorder(): UseRecorderReturn {
+  const recorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+    numberOfChannels: 1,
+  });
+  const recorderState = useAudioRecorderState(recorder, 40);
+
   const [isRecording, setIsRecording] = useState(false);
-  const [durationMs, setDurationMs] = useState(0);
   const [uri, setUri] = useState<string | null>(null);
   const [levels, setLevels] = useState<number[]>([]);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const levelsRef = useRef<number[]>([]);
   const lastMeteringRef = useRef(0);
   const currentMeteringRef = useRef(0);
@@ -29,26 +38,22 @@ export function useRecorder(): UseRecorderReturn {
   const rafRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isRecordingRef = useRef(false);
 
-  const onStatus = useCallback((status: AVPlaybackStatus & { metering?: number; durationMillis?: number; isRecording?: boolean }) => {
-    const s = status as unknown as { isRecording?: boolean; durationMillis?: number; metering?: number };
-    if (s.isRecording) {
-      if (s.durationMillis !== undefined) {
-        setDurationMs(s.durationMillis);
-      }
-      if (s.metering !== undefined) {
-        lastMeteringRef.current = currentMeteringRef.current;
-        currentMeteringRef.current = Math.max(0, Math.min(1, (s.metering + 45) / 45));
-        meteringTimestampRef.current = Date.now();
-      }
+  useEffect(() => {
+    if (isRecordingRef.current && recorderState.metering !== undefined) {
+      lastMeteringRef.current = currentMeteringRef.current;
+      currentMeteringRef.current = Math.max(0, Math.min(1, (recorderState.metering + 45) / 45));
+      meteringTimestampRef.current = Date.now();
     }
-  }, []);
+  }, [recorderState.metering]);
 
   const tick = useCallback(() => {
     if (!isRecordingRef.current) return;
 
     const elapsed = Date.now() - meteringTimestampRef.current;
     const t = Math.min(1, elapsed / 80);
-    const lerped = lastMeteringRef.current + (currentMeteringRef.current - lastMeteringRef.current) * t;
+    const lerped =
+      lastMeteringRef.current +
+      (currentMeteringRef.current - lastMeteringRef.current) * t;
 
     const arr = levelsRef.current;
     arr.push(lerped);
@@ -67,23 +72,22 @@ export function useRecorder(): UseRecorderReturn {
       throw new Error("Microphone permission not granted");
     }
 
+    await configureAudioSession();
+
     setUri(null);
-    setDurationMs(0);
     levelsRef.current = [];
     setLevels([]);
     lastMeteringRef.current = 0;
     currentMeteringRef.current = 0;
     meteringTimestampRef.current = Date.now();
 
-    const recording = await startRecording();
-    recording.setOnRecordingStatusUpdate(onStatus as (status: Audio.RecordingStatus) => void);
-    recording.setProgressUpdateInterval(40);
-    recordingRef.current = recording;
+    await recorder.prepareToRecordAsync();
+    recorder.record();
     isRecordingRef.current = true;
     setIsRecording(true);
 
     rafRef.current = setTimeout(tick, FRAME_MS);
-  }, [onStatus, tick]);
+  }, [recorder, tick]);
 
   const stop = useCallback(async () => {
     isRecordingRef.current = false;
@@ -92,21 +96,15 @@ export function useRecorder(): UseRecorderReturn {
       rafRef.current = null;
     }
 
-    if (!recordingRef.current) {
-      setIsRecording(false);
-      return null;
-    }
-
-    const recordingUri = await stopRecording(recordingRef.current);
-    recordingRef.current = null;
+    await recorder.stop();
+    const recordingUri = recorder.uri;
     setIsRecording(false);
     setUri(recordingUri);
     return recordingUri;
-  }, []);
+  }, [recorder]);
 
   const reset = useCallback(() => {
     setUri(null);
-    setDurationMs(0);
     levelsRef.current = [];
     setLevels([]);
   }, []);
@@ -117,5 +115,13 @@ export function useRecorder(): UseRecorderReturn {
     };
   }, []);
 
-  return { isRecording, durationMs, uri, levels, start, stop, reset };
+  return {
+    isRecording,
+    durationMs: recorderState.durationMillis,
+    uri,
+    levels,
+    start,
+    stop,
+    reset,
+  };
 }

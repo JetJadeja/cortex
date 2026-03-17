@@ -1,17 +1,18 @@
-import React, { useContext, useEffect, useRef } from "react";
+import React, { useContext, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  Animated,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { File } from "expo-file-system";
 import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
 import { Waveform } from "../../src/components/Waveform";
 import { RecordButton } from "../../src/components/RecordButton";
 import { useRecorder } from "../../src/hooks/useRecorder";
+import { api } from "../../src/lib/api";
 import { colors, spacing, fontSize } from "../../src/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -23,80 +24,96 @@ function formatDuration(ms: number): string {
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
+interface ProcessResponse {
+  session_id: string;
+  summary: string;
+}
+
 export default function HomeScreen() {
   const auth = useContext(AuthContext);
   const displayName = auth?.profile?.display_name ?? "there";
-  const { isRecording, durationMs, uri, levels, start, stop } =
-    useRecorder();
+  const { isRecording, durationMs, levels, start, stop } = useRecorder();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
 
-  const waveformOpacity = useRef(new Animated.Value(0)).current;
-  const timerOpacity = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(waveformOpacity, {
-        toValue: isRecording ? 1 : 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(timerOpacity, {
-        toValue: isRecording ? 1 : 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [isRecording, waveformOpacity, timerOpacity]);
+  const submitRecording = async (uri: string) => {
+    const token = auth?.session?.access_token;
+    if (!token) return;
+
+    setIsSubmitting(true);
+    try {
+      const file = new File(uri);
+      const base64 = await file.base64();
+      const response = await api.post<ProcessResponse>(
+        "/process-recording",
+        { audio: base64, mimetype: "audio/m4a" },
+        token,
+      );
+      setSummary(response.summary || "Building cards on your recording.");
+    } catch (err) {
+      console.error("Failed to submit recording:", err);
+      setSummary("Recording saved.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleToggle = async () => {
+    if (isSubmitting) return;
     if (isRecording) {
-      await stop();
+      const uri = await stop();
+      if (uri) {
+        submitRecording(uri);
+      }
     } else {
+      setSummary(null);
       await start();
     }
   };
+
+  const subtitleText = isRecording
+    ? "Listening..."
+    : isSubmitting
+      ? "Transcribing..."
+      : "Explain what you just learned.";
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.label}>CORTEX</Text>
         <Text style={styles.greeting}>Hey, {displayName}</Text>
-        <Text style={styles.subtitle}>
-          {isRecording
-            ? "Listening..."
-            : uri
-              ? "Recording complete"
-              : "Explain what you just learned."}
-        </Text>
+        <Text style={styles.subtitle}>{subtitleText}</Text>
       </View>
 
       <View style={styles.stage}>
-        <Animated.View
-          style={[styles.waveformWrap, { opacity: waveformOpacity }]}
-          pointerEvents="none"
-        >
-          <Waveform
-            levels={levels}
-            barCount={Math.floor((SCREEN_WIDTH - 48) / 4.5)}
-            height={120}
-            color="rgba(162, 155, 254, 0.5)"
-            accentColor={colors.primaryLight}
-          />
-        </Animated.View>
-
-        <Animated.Text
-          style={[
-            styles.timer,
-            { opacity: timerOpacity },
-          ]}
-        >
-          {formatDuration(durationMs)}
-        </Animated.Text>
-
-        <RecordButton isRecording={isRecording} onPress={handleToggle} />
-
-        {!isRecording && !uri && (
-          <Text style={styles.hint}>Tap to record</Text>
+        {isRecording && (
+          <>
+            <View style={styles.waveformWrap}>
+              <Waveform
+                levels={levels}
+                barCount={Math.floor((SCREEN_WIDTH - 48) / 4.5)}
+                height={120}
+                color="rgba(162, 155, 254, 0.5)"
+                accentColor={colors.primaryLight}
+              />
+            </View>
+            <Text style={styles.timer}>{formatDuration(durationMs)}</Text>
+          </>
         )}
+
+        {!isRecording && !isSubmitting && summary ? (
+          <Text style={styles.summary}>{summary}</Text>
+        ) : !isRecording && !isSubmitting ? (
+          <Text style={styles.hint}>Tap to record</Text>
+        ) : isSubmitting ? (
+          <Text style={styles.hint}>Transcribing...</Text>
+        ) : null}
+
+        <RecordButton
+          isRecording={isRecording}
+          onPress={handleToggle}
+        />
       </View>
 
       <View style={styles.footer}>
@@ -160,6 +177,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+  summary: {
+    fontSize: fontSize.md,
+    color: colors.primaryLight,
+    textAlign: "center",
+    paddingHorizontal: spacing.lg,
   },
   footer: {
     paddingBottom: spacing.xl,

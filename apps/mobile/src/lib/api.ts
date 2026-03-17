@@ -27,13 +27,23 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, token?: string) =>
+    request<T>(path, token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
 
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body }),
+  post: <T>(path: string, body: unknown, token?: string) =>
+    request<T>(path, {
+      method: "POST",
+      body,
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+    }),
 
-  put: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PUT", body }),
+  put: <T>(path: string, body: unknown, token?: string) =>
+    request<T>(path, {
+      method: "PUT",
+      body,
+      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+    }),
 
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, token?: string) =>
+    request<T>(path, token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
 };

@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0A0A0A"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cortex.app",
@@ -25,9 +27,14 @@
         "backgroundColor": "#0A0A0A"
       },
       "package": "com.cortex.app",
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "scheme": "cortex",
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      "expo-audio"
+    ]
   }
 }

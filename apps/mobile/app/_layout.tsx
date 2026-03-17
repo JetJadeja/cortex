@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useAuth } from "../src/hooks/useAuth";
 import { colors } from "../src/constants/theme";
@@ -35,9 +36,11 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthContext.Provider value={auth}>
-      <Slot />
-    </AuthContext.Provider>
+    <SafeAreaProvider>
+      <AuthContext.Provider value={auth}>
+        <Slot />
+      </AuthContext.Provider>
+    </SafeAreaProvider>
   );
 }
 
