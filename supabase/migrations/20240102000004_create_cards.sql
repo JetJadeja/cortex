@@ -1,5 +1,5 @@
 create table cards (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   concept_id uuid not null references concepts(id) on delete cascade,
   card_type text not null check (card_type in ('flashcard', 'explain_aloud', 'scenario', 'connection')),

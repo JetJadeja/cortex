@@ -10,5 +10,5 @@ alter table cards
   add column stability real not null default 0,
   add column difficulty real not null default 0;
 
-drop index idx_cards_next_review_date;
+drop index if exists idx_cards_next_review_date;
 create index idx_cards_due_at on cards(user_id, due_at);

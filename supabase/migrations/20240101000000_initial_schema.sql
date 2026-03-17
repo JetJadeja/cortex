@@ -1,7 +1,7 @@
 create extension if not exists "uuid-ossp";
 
 create table users (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   email text unique not null,
   display_name text not null default '',
   created_at timestamptz not null default now(),
@@ -9,7 +9,7 @@ create table users (
 );
 
 create table recordings (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
   title text not null,
   audio_url text not null,
@@ -19,7 +19,7 @@ create table recordings (
 );
 
 create table transcripts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   recording_id uuid not null references recordings(id) on delete cascade,
   text text not null,
   confidence real not null default 0,
@@ -29,7 +29,7 @@ create table transcripts (
 );
 
 create table reviews (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
   transcript_id uuid not null references transcripts(id) on delete cascade,
   score real,
@@ -38,7 +38,7 @@ create table reviews (
 );
 
 create table review_items (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   review_id uuid not null references reviews(id) on delete cascade,
   question text not null,
   expected_answer text not null,

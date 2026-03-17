@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { AuthContext } from "./_layout";
 import { Button } from "../src/components/Button";
-import { createProfile } from "../src/lib/profiles";
+import { createProfile, updateProfile } from "../src/lib/profiles";
 import { colors, spacing, fontSize, borderRadius } from "../src/constants/theme";
 
 export default function OnboardingScreen() {
@@ -25,8 +25,9 @@ export default function OnboardingScreen() {
       return;
     }
 
-    const parsedAge = age.trim() ? parseInt(age.trim(), 10) : null;
-    if (age.trim() && (isNaN(parsedAge as number) || (parsedAge as number) < 1)) {
+    const trimmedAge = age.trim();
+    const parsedAge = trimmedAge ? parseInt(trimmedAge, 10) : null;
+    if (trimmedAge && (!/^\d+$/.test(trimmedAge) || (parsedAge as number) < 1)) {
       setError("Please enter a valid age.");
       return;
     }
@@ -37,10 +38,19 @@ export default function OnboardingScreen() {
     setIsSubmitting(true);
 
     try {
-      await createProfile(auth.session.user.id, displayName.trim(), parsedAge);
+      const userId = auth.session.user.id;
+      if (auth.profile) {
+        await updateProfile(userId, { display_name: displayName.trim(), age: parsedAge });
+      } else {
+        await createProfile(userId, displayName.trim(), parsedAge);
+      }
       await auth.refreshProfile();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Something went wrong.";
+      const message = err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+          ? String((err as Record<string, unknown>).message)
+          : "Something went wrong.";
       setError(message);
     } finally {
       setIsSubmitting(false);

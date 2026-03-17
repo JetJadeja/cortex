@@ -13,6 +13,20 @@ import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, fontSize, borderRadius } from "../../src/constants/theme";
 
+function mapAuthError(message: string): string {
+  if (message.includes("User already registered")) {
+    return "An account with this email already exists.";
+  }
+  if (message.includes("valid email")) {
+    return "Please enter a valid email address.";
+  }
+  return message;
+}
+
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export default function SignUpScreen() {
   const auth = useContext(AuthContext);
   const router = useRouter();
@@ -25,6 +39,11 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     if (!email.trim() || !password.trim()) {
       setError("Email and password are required.");
+      return;
+    }
+
+    if (!isValidEmail(email.trim())) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -45,7 +64,7 @@ export default function SignUpScreen() {
       await auth?.signUp(email.trim(), password);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign up failed.";
-      setError(message);
+      setError(mapAuthError(message));
     } finally {
       setIsSubmitting(false);
     }
@@ -69,6 +88,8 @@ export default function SignUpScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
+          spellCheck={false}
+          autoCorrect={false}
         />
 
         <TextInput
@@ -93,7 +114,11 @@ export default function SignUpScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button title="Create Account" onPress={handleSignUp} disabled={isSubmitting} />
+        <Button
+          title={isSubmitting ? "Creating..." : "Create Account"}
+          onPress={handleSignUp}
+          disabled={isSubmitting}
+        />
 
         <Pressable onPress={() => router.back()} style={styles.link}>
           <Text style={styles.linkText}>

@@ -1,5 +1,5 @@
 create table concepts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   session_id uuid not null references sessions(id) on delete cascade,
   title text not null,

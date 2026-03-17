@@ -13,6 +13,16 @@ import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
 import { colors, spacing, fontSize, borderRadius } from "../../src/constants/theme";
 
+function mapAuthError(message: string): string {
+  if (message.includes("Invalid login credentials")) {
+    return "Incorrect email or password.";
+  }
+  if (message.includes("Email not confirmed")) {
+    return "Please confirm your email before signing in.";
+  }
+  return message;
+}
+
 export default function LoginScreen() {
   const auth = useContext(AuthContext);
   const router = useRouter();
@@ -34,7 +44,7 @@ export default function LoginScreen() {
       await auth?.signIn(email.trim(), password);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed.";
-      setError(message);
+      setError(mapAuthError(message));
     } finally {
       setIsSubmitting(false);
     }
@@ -58,6 +68,8 @@ export default function LoginScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
+          spellCheck={false}
+          autoCorrect={false}
         />
 
         <TextInput
@@ -72,7 +84,11 @@ export default function LoginScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button title="Sign In" onPress={handleLogin} disabled={isSubmitting} />
+        <Button
+          title={isSubmitting ? "Signing in..." : "Sign In"}
+          onPress={handleLogin}
+          disabled={isSubmitting}
+        />
 
         <Pressable onPress={() => router.push("/(auth)/sign-up")} style={styles.link}>
           <Text style={styles.linkText}>

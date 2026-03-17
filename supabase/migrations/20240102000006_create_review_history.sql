@@ -1,5 +1,5 @@
 create table review_history (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   card_id uuid references cards(id) on delete set null,
   concept_id uuid not null references concepts(id) on delete cascade,
