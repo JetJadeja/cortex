@@ -67,20 +67,24 @@ export async function writeConceptsAndCards(
   concepts: ConceptInput[],
 ): Promise<void> {
   const allEmbedTexts: string[] = [];
-  const cardIndex: Array<{ conceptIdx: number; cardIdx: number }> = [];
 
-  for (let ci = 0; ci < concepts.length; ci++) {
-    for (let ki = 0; ki < concepts[ci].cards.length; ki++) {
-      const card = concepts[ci].cards[ki];
-      allEmbedTexts.push(buildEmbedText(card.front, card.back, concepts[ci].title));
-      cardIndex.push({ conceptIdx: ci, cardIdx: ki });
+  for (const concept of concepts) {
+    for (const card of concept.cards) {
+      allEmbedTexts.push(buildEmbedText(card.front, card.back, concept.title));
     }
   }
 
   let allEmbeddings: Array<number[] | null>;
   try {
     const results = await generateEmbeddings(allEmbedTexts);
-    allEmbeddings = results;
+    if (results.length !== allEmbedTexts.length) {
+      console.error(
+        `Embedding count mismatch: expected ${allEmbedTexts.length}, got ${results.length}`,
+      );
+      allEmbeddings = allEmbedTexts.map(() => null);
+    } else {
+      allEmbeddings = results;
+    }
   } catch (err) {
     console.error(
       "Batch embedding failed, falling back to per-card embedding:",
@@ -116,11 +120,17 @@ export async function writeConceptsAndCards(
         card,
         embedding,
       );
-      if (action === "add" || action === "merge") cardsAdded++;
+      if (action === "add") cardsAdded++;
     }
 
     if (cardsAdded === 0) {
-      await supabase.from("concepts").delete().eq("id", inserted.id);
+      const { error: deleteError } = await supabase
+        .from("concepts")
+        .delete()
+        .eq("id", inserted.id);
+      if (deleteError) {
+        console.error(`Failed to delete orphaned concept ${inserted.id}:`, deleteError);
+      }
     }
   }
 }
@@ -213,13 +223,24 @@ async function applyDedupDecision(
         };
       }
 
-      const { data: existing } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from("cards")
         .select("front, concepts(title)")
         .eq("id", decision.mergeTargetId)
         .single();
 
-      const existingFront = existing?.front ?? card.front;
+      if (fetchError || !existing) {
+        await insertCard(userId, conceptId, card.front, card.back, embedding);
+        return {
+          ...decision,
+          action: "add",
+          reason: fetchError
+            ? `Merge target fetch failed: ${fetchError.message}`
+            : "Merge target not found, fell back to add",
+        };
+      }
+
+      const existingFront = existing.front;
       const concept = Array.isArray(existing?.concepts)
         ? existing.concepts[0]
         : existing?.concepts;
