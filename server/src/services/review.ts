@@ -72,7 +72,7 @@ export async function getNextPhase1Item(userId: string, midnight: Date): Promise
 
   const { data: dueCards } = await supabase
     .from("cards")
-    .select("id, concept_id, front, back, due_at, card_type, stability, concepts(priority, type)")
+    .select("id, concept_id, front, back, due_at, stability, concepts(priority)")
     .eq("user_id", userId)
     .lte("due_at", now)
     .order("due_at", { ascending: true });
@@ -128,16 +128,14 @@ export async function getNextPhase2Item(userId: string, midnight: Date): Promise
 
 interface DueCard {
   stability: number;
-  card_type: string;
-  concepts: { priority: string; type: string }[] | { priority: string; type: string } | null;
+  concepts: { priority: string }[] | { priority: string } | null;
 }
 
 /**
  * Priority tiers for Phase 1 ordering:
  * 0 = previously failed (reviewed at least once, stability < 2 days)
  * 1 = core-tagged concepts
- * 2 = connection cards
- * 3 = everything else
+ * 2 = everything else
  */
 function priorityTier(card: DueCard): number {
   const isFailedCard = card.stability > 0 && card.stability < 2;
@@ -145,9 +143,8 @@ function priorityTier(card: DueCard): number {
 
   const concept = Array.isArray(card.concepts) ? card.concepts[0] : card.concepts;
   if (concept?.priority === "core") return 1;
-  if (card.card_type === "connection") return 2;
 
-  return 3;
+  return 2;
 }
 
 async function getLastReviewDate(cardId: string): Promise<Date | null> {

@@ -32,6 +32,7 @@ export async function transcribeAudio(audioBuffer: Buffer, mimetype: string): Pr
     mimetype,
   });
 
+  if (!result) throw new Error("Deepgram returned no result");
   const channel = result.results.channels[0];
   const alternative = channel.alternatives[0];
 

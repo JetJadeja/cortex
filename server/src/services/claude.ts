@@ -3,21 +3,63 @@ import { loadPrompt } from "../utils/loadPrompt";
 
 const anthropic = new Anthropic();
 
+export interface ExtractedCard {
+  front: string;
+  back: string;
+}
+
 export interface ExtractedConcept {
   title: string;
   explanation: string;
-  type: string;
-  source_context: string;
-  cards: Array<{
-    card_type: string;
-    front: string;
-    back: string;
-  }>;
+  cards: ExtractedCard[];
 }
 
-interface ExtractionResult {
-  concepts: ExtractedConcept[];
-}
+const extractionSchema = {
+  type: "object" as const,
+  properties: {
+    concepts: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          title: {
+            type: "string" as const,
+            description: "Specific, searchable concept name",
+          },
+          explanation: {
+            type: "string" as const,
+            description:
+              "Corrected and sharpened version of what the user said, 2-4 sentences",
+          },
+          cards: {
+            type: "array" as const,
+            items: {
+              type: "object" as const,
+              properties: {
+                front: {
+                  type: "string" as const,
+                  description:
+                    "A single question, one sentence, under 140 characters",
+                },
+                back: {
+                  type: "string" as const,
+                  description:
+                    "Direct answer, 1-3 sentences, under 300 characters",
+                },
+              },
+              required: ["front", "back"] as const,
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["title", "explanation", "cards"] as const,
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["concepts"] as const,
+  additionalProperties: false,
+};
 
 interface ChatResponse {
   answer: string;
@@ -38,13 +80,23 @@ export async function extractConcepts(transcript: string): Promise<ExtractedConc
   const prompt = loadPrompt("process-transcript", { transcript });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
+    model: "claude-sonnet-4-6-20250514",
+    max_tokens: 16384,
     messages: [{ role: "user", content: prompt }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: extractionSchema,
+      },
+    },
   });
 
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
-  const result = JSON.parse(text) as ExtractionResult;
+  const block = message.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const result = JSON.parse(block.text) as { concepts: ExtractedConcept[] };
   return result.concepts;
 }
 
