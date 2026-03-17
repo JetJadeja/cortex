@@ -41,6 +41,18 @@ export async function updateSessionStatus(
   if (error) throw error;
 }
 
+export async function getPendingSessions(): Promise<
+  Array<{ id: string; user_id: string; transcript: string }>
+> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .select("id, user_id, transcript")
+    .eq("processing_status", "pending");
+
+  if (error) throw error;
+  return data;
+}
+
 export async function writeConceptsAndCards(
   userId: string,
   sessionId: string,
