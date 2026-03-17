@@ -41,7 +41,14 @@ async function processJob(
         `Session ${sessionId} failed (attempt ${attempt}), retrying:`,
         message,
       );
-      await clearSessionData(sessionId);
+      try {
+        await clearSessionData(sessionId);
+      } catch (cleanupErr) {
+        console.error(
+          `Failed to clean up session ${sessionId} before retry:`,
+          cleanupErr,
+        );
+      }
       return processJob(userId, sessionId, transcript, attempt + 1);
     }
 

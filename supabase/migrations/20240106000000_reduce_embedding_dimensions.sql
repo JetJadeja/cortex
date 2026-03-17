@@ -46,6 +46,7 @@ as $$
       1 - (cards.embedding <=> query_embedding) as similarity
     from cards
     where cards.user_id = match_user_id
+      and cards.embedding is not null
     order by cards.embedding <=> query_embedding
     limit match_count
   ) m

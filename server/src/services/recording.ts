@@ -53,12 +53,19 @@ export async function getPendingSessions(): Promise<
 }
 
 export async function clearSessionData(sessionId: string): Promise<void> {
-  const { error } = await supabase
+  const { error: dedupError } = await supabase
+    .from("dedup_log")
+    .delete()
+    .eq("session_id", sessionId);
+
+  if (dedupError) throw dedupError;
+
+  const { error: conceptError } = await supabase
     .from("concepts")
     .delete()
     .eq("session_id", sessionId);
 
-  if (error) throw error;
+  if (conceptError) throw conceptError;
 }
 
 export async function writeConceptsAndCards(
