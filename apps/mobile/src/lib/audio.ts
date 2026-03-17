@@ -1,6 +1,7 @@
 import { Audio } from "expo-av";
 
 const RECORDING_OPTIONS: Audio.RecordingOptions = {
+  isMeteringEnabled: true,
   android: {
     extension: ".m4a",
     outputFormat: Audio.AndroidOutputFormat.MPEG_4,
