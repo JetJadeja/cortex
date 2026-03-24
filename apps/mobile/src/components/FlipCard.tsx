@@ -16,73 +16,86 @@ const typeLabel: Record<CardType, string> = {
   connection: "Connection",
 };
 
+const CARD_HEIGHT = 260;
+
 export function FlipCard({ front, back, cardType }: FlipCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
-  const animating = useRef(false);
 
   const handleFlip = () => {
-    if (animating.current) return;
-    animating.current = true;
-
-    // First half: rotate to 90deg (card goes edge-on)
-    Animated.timing(flipAnim, {
-      toValue: 90,
-      duration: 150,
+    const toValue = isFlipped ? 0 : 1;
+    setIsFlipped(!isFlipped);
+    Animated.spring(flipAnim, {
+      toValue,
+      tension: 50,
+      friction: 8,
       useNativeDriver: true,
-    }).start(() => {
-      // Swap content while card is invisible
-      setIsFlipped((prev) => !prev);
-      // Jump to -90deg (other side of edge-on)
-      flipAnim.setValue(-90);
-      // Second half: rotate from -90deg back to 0deg with spring
-      Animated.spring(flipAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }).start(() => {
-        animating.current = false;
-      });
-    });
+    }).start();
   };
 
-  const rotateY = flipAnim.interpolate({
-    inputRange: [-90, 0, 90],
-    outputRange: ["-90deg", "0deg", "90deg"],
+  const frontRotation = flipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
+  const backRotation = flipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["180deg", "360deg"],
   });
 
   return (
     <Pressable onPress={handleFlip}>
-      <Animated.View
-        style={[
-          styles.card,
-          { transform: [{ perspective: 1000 }, { rotateY }] },
-        ]}
-      >
-        {isFlipped ? (
-          <>
-            <Text style={styles.typeLabelBack}>Answer</Text>
-            <Text style={styles.backText}>{back}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.typeLabel}>{typeLabel[cardType]}</Text>
+      <View style={styles.container}>
+        <Animated.View
+          style={[
+            styles.face,
+            {
+              transform: [{ perspective: 1000 }, { rotateY: frontRotation }],
+              backfaceVisibility: "hidden",
+            },
+          ]}
+        >
+          <Text style={styles.typeLabel}>{typeLabel[cardType]}</Text>
+          <View style={styles.frontBody}>
             <Text style={styles.frontText}>{front}</Text>
-          </>
-        )}
-      </Animated.View>
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.face,
+            styles.faceBack,
+            {
+              transform: [{ perspective: 1000 }, { rotateY: backRotation }],
+              backfaceVisibility: "hidden",
+            },
+          ]}
+        >
+          <Text style={styles.typeLabelBack}>Answer</Text>
+          <Text style={styles.backText}>{back}</Text>
+        </Animated.View>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
+    height: CARD_HEIGHT,
+  },
+  face: {
+    height: CARD_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: spacing.lg,
+  },
+  faceBack: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     gap: spacing.md,
   },
   typeLabel: {
@@ -98,6 +111,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: "uppercase",
     color: colors.primaryLight,
+  },
+  frontBody: {
+    flex: 1,
+    justifyContent: "center",
   },
   frontText: {
     fontFamily: "Georgia",
