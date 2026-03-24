@@ -25,16 +25,16 @@ processRecordingRouter.post("/", async (req: Request, res: Response) => {
     const transcription = await transcribeAudio(audioBuffer, mimetype);
     const transcript = transcription.transcript;
 
-    const sessionId = await createSession(userId, transcript);
-
-    let summary = "Building cards on your recording.";
+    let topic: string | null = null;
     try {
-      summary = await generateRecordingSummary(transcript);
+      topic = await generateRecordingSummary(transcript);
     } catch (err) {
-      console.error("Summary generation failed, using default:", err);
+      console.error("Summary generation failed:", err);
     }
 
-    res.json({ session_id: sessionId, summary });
+    const sessionId = await createSession(userId, transcript, topic ?? undefined);
+
+    res.json({ session_id: sessionId, summary: topic || "your recording" });
 
     enqueueProcessing(userId, sessionId, transcript);
   } catch (err) {

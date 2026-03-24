@@ -50,7 +50,8 @@ export default function HomeScreen() {
         { audio: base64, mimetype: "audio/m4a" },
         token,
       );
-      setSummary(response.summary || "Building cards on your recording.");
+      const topic = response.summary || "your recording";
+      setSummary(`Building cards on ${topic}.`);
     } catch (err) {
       console.error("Failed to submit recording:", err);
       setSummary("Recording saved.");
