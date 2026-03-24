@@ -20,11 +20,14 @@ echo "API URL set to http://${LOCAL_IP}:3000"
 echo "Starting server in background..."
 echo ""
 
-# Start server in background, suppress output
-(cd "$ROOT_DIR/server" && bun --watch src/index.ts > /dev/null 2>&1) &
+# Start server in background, log to file
+SERVER_LOG="$ROOT_DIR/server.log"
+: > "$SERVER_LOG"
+(cd "$ROOT_DIR/server" && bun --watch src/index.ts >> "$SERVER_LOG" 2>&1) &
 SERVER_PID=$!
 
 echo "Server running (PID $SERVER_PID)"
+echo "Server logs: tail -f server.log"
 echo ""
 
 trap "kill $SERVER_PID 2>/dev/null" EXIT

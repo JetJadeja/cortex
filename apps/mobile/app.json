@@ -18,7 +18,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.cortex.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Cortex needs microphone access to record audio for transcription."
+        "NSMicrophoneUsageDescription": "Cortex needs microphone access to record audio for transcription.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
