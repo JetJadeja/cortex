@@ -1,62 +1,92 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable } from "react-native";
+import React, { useCallback, useContext, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
+import { AuthContext } from "../../app/_layout";
+import { FlipCard } from "../components/FlipCard";
+import { getAllCards, type Card } from "../lib/cards";
 import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
-import { supabase } from "../lib/supabase";
-
-interface Recording {
-  id: string;
-  title: string;
-  created_at: string;
-  duration_seconds: number;
-}
 
 export const ExploreScreen: React.FC = () => {
-  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const auth = useContext(AuthContext);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchRecordings() {
-      const { data, error } = await supabase
-        .from("recordings")
-        .select("id, title, created_at, duration_seconds")
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (!error && data) {
-        setRecordings(data);
+  useFocusEffect(
+    useCallback(() => {
+      const userId = auth?.session?.user?.id;
+      if (!userId) {
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    }
 
-    fetchRecordings();
-  }, []);
+      let cancelled = false;
 
-  const renderItem = ({ item }: { item: Recording }) => (
-    <Pressable style={styles.card}>
-      <Text style={styles.cardTitle}>{item.title}</Text>
-      <Text style={styles.cardMeta}>
-        {new Date(item.created_at).toLocaleDateString()} ·{" "}
-        {Math.round(item.duration_seconds / 60)} min
-      </Text>
-    </Pressable>
+      async function fetchCards() {
+        setLoading(true);
+        try {
+          const data = await getAllCards(userId!);
+          if (!cancelled) setCards(data);
+        } catch (err) {
+          console.error("Failed to fetch cards:", err);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      }
+
+      fetchCards();
+      return () => { cancelled = true; };
+    }, [auth?.session?.user?.id]),
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Card }) => (
+      <FlipCard front={item.front} back={item.back} cardType={item.card_type} />
+    ),
+    [],
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Explore</Text>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.label}>CORTEX</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Explore</Text>
+          {!loading && cards.length > 0 && (
+            <View style={styles.countPill}>
+              <Text style={styles.countText}>{cards.length}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
       {loading ? (
-        <Text style={styles.empty}>Loading recordings...</Text>
-      ) : recordings.length === 0 ? (
-        <Text style={styles.empty}>No recordings yet. Start by recording something.</Text>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : cards.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyTitle}>No cards yet</Text>
+          <Text style={styles.emptyHint}>
+            Record something to generate{"\n"}your first cards.
+          </Text>
+        </View>
       ) : (
         <FlatList
-          data={recordings}
+          data={cards}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -64,36 +94,62 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: spacing.lg,
   },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: spacing.lg,
+  header: {
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    gap: 6,
   },
-  list: {
-    gap: spacing.sm,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-  },
-  cardTitle: {
-    fontSize: fontSize.md,
-    color: colors.text,
+  label: {
+    fontSize: 11,
     fontWeight: "600",
+    letterSpacing: 3,
+    color: colors.primary,
     marginBottom: spacing.xs,
   },
-  cardMeta: {
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  countPill: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  countText: {
+    fontSize: fontSize.xs,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  list: {
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  emptyTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  emptyHint: {
     fontSize: fontSize.sm,
     color: colors.textMuted,
-  },
-  empty: {
-    fontSize: fontSize.md,
-    color: colors.textSecondary,
     textAlign: "center",
-    marginTop: spacing.xxl,
+    lineHeight: 22,
   },
 });
