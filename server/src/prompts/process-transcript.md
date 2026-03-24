@@ -28,38 +28,54 @@ Length: 2-4 sentences. Enough to stand alone as a reference, short enough to sca
 
 ## Cards
 
+### Depth classification
+
+Before generating cards, classify each concept by how much detail the user actually provided:
+
+- **observation**: A note-like claim, event, takeaway, or attribution with limited causal detail. The user stated something without explaining how or why it works.
+- **explanation**: The user provides substantive how/why detail: steps, mechanisms, contrasts, conditions, or tradeoffs.
+
+This classification drives card count. Do not override it.
+
 ### How many cards to generate
 
-A concept needs one card per independently forgettable piece of knowledge. The test: if someone remembers one piece but forgets another, would that be a real gap? If yes, those are separate cards.
+**Observation concepts: exactly 1 card.** Synthesize the main takeaway into a single identity-style card. If the observation mentions multiple drivers or causes without unpacking any of them, test them together in one card. Do not split a shallow claim into multiple mechanism cards.
 
-There are five dimensions a concept can have. Not every concept has all of them; most have 2-3. Generate a card for each dimension the user's explanation actually covers:
+**Explanation concepts: 2-5 cards**, one per dimension the user explicitly covered. Use the dimension system below.
 
-1. **Identity**: What is this thing? Its defining characteristic, the thing that separates it from everything else. Almost every concept gets this card.
-2. **Mechanism**: How does it work? The internal process, the moving parts. Only when the user described how something operates, not just what it is.
-3. **Purpose**: Why does it exist? What problem does it solve, why does it matter? Only when the "why" isn't obvious from the definition.
-4. **Distinction**: How is it different from the thing it's most easily confused with? Only when the user explicitly drew a comparison or contrasted two things.
-5. **Application**: When do you use it, or when does it apply? Only when the concept is a tool, technique, or principle with conditions for use.
-6. **Challenge**: A harder question that pushes the user deeper into territory they were already exploring. Only when the user's explanation contains enough substance to support a question that goes beyond basic recall (connecting cause and effect, asking them to reason through implications, or comparing things they brought up together). Don't invent comparisons or implications the content doesn't support.
+### Dimensions (explanation concepts only)
 
-A simple fact (a specific number, a date, a name) has only identity: one card. A mechanism the user explained in depth might have identity + mechanism + purpose: three cards. A principle they contrasted with something else might have identity + distinction + challenge: three cards.
+A concept can have up to six dimensions. Generate a card for each dimension the user's transcript explicitly supports:
 
-**The rule: generate cards for what the user was trying to learn.** Every dimension they covered gets a card. If Claude filled in missing knowledge that's central to the concept (not a tangential aside), that filled-in knowledge can also get a card. The user was clearly trying to learn this and should be tested on the complete picture. But don't generate cards for tangential fill-ins or knowledge the user wasn't engaging with.
+1. **Identity**: What is this thing? Its defining characteristic. Almost every explanation concept gets this card.
+2. **Mechanism**: How does it work? Only when the user described the internal process, not just named it.
+3. **Purpose**: Why does it exist or matter? Only when the user discussed the "why" and it isn't obvious from the definition.
+4. **Distinction**: How is it different from something else? Only when the user explicitly drew a comparison.
+5. **Application**: When do you use it? Only when the user discussed conditions for use.
+6. **Challenge**: A harder question pushing deeper. Only when the user's own explanation contains enough substance to support it. Do not invent comparisons or implications the content doesn't support.
 
-Example: if the user explained how margin calls work in detail:
-- "What is a margin call?" → identity
-- "What triggers a margin call?" → mechanism
-- "Why can margin calls cause cascading sell-offs?" → challenge (pushes deeper into consequences they discussed)
+**Evidence rule**: A non-identity dimension is allowed only if the user directly covered it in the transcript. Do not generate cards from knowledge that Claude filled in for the explanation text. Filled-in knowledge improves explanation quality; it does not justify additional cards.
 
-Example: if the user just mentioned that CRISPR edits DNA:
-- "What does CRISPR do?" → identity (one card; they didn't go deeper)
+**The rule: generate cards for what the user actually said.** If the user didn't explain a mechanism, there is no mechanism card. If the user listed multiple causes without unpacking them, that's one card, not one per cause.
 
-Example: if the user contrasted two approaches:
-- "How does UDP differ from TCP in handling packet loss?" → distinction (grounded in a comparison they made)
+Example (explanation): the user explained how margin calls work in detail:
+- "What is a margin call?" -> identity
+- "What triggers a margin call?" -> mechanism
+- "Why can margin calls cause cascading sell-offs?" -> challenge (they discussed consequences)
 
-Example: if the user explained convertible notes and mentioned they delay valuation:
-- "What is a convertible note?" → identity
-- "Why do convertible notes defer valuation?" → purpose
-- "When would a startup choose a convertible note over a priced round?" → application (they discussed the conditions)
+Example (observation): the user just mentioned that CRISPR edits DNA:
+- "What does CRISPR do?" -> identity (one card; they didn't go deeper)
+
+Example (observation): the user mentioned that global shipping costs spiked because of Houthi attacks in the Red Sea and drought at the Panama Canal:
+- "What drove the spike in global shipping costs?" -> identity (one synthesis card combining both drivers; they didn't unpack either cause)
+
+Example (explanation): the user contrasted two approaches in detail:
+- "How does UDP differ from TCP in handling packet loss?" -> distinction
+
+Example (explanation): the user explained convertible notes and discussed why they defer valuation:
+- "What is a convertible note?" -> identity
+- "Why do convertible notes defer valuation?" -> purpose
+- "When would a startup choose a convertible note over a priced round?" -> application (they discussed the conditions)
 
 ### Front
 
@@ -109,3 +125,5 @@ Every card surfaces independently during spaced repetition: days apart, random o
 - Yes/no questions without substance.
 - Personal anecdotes unless they encode a transferable principle.
 - Cards connecting concepts from different topics that the user didn't explicitly link. The review system handles cross-concept connections separately.
+- Dimension-fragmented cards from a single shallow observation. If the user didn't unpack it, don't split it.
+- Cards testing knowledge that Claude filled in rather than knowledge the user provided.
