@@ -9,3 +9,4 @@ android/
 .DS_Store
 agent_docs/
 .cx-index.db
+server.log
