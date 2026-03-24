@@ -14,6 +14,8 @@ Never use em dashes in generated text. Use commas, periods, semicolons, colons, 
 
 A concept is a single, independently meaningful idea. If the user covered three topics, that's three concepts. Two ideas in the same sentence are still separate if they stand alone.
 
+When the user explains a general category and then focuses on a specific type within it, those are separate concepts. The general definition stands on its own even if the user covered it briefly before going deeper. Example: a user explains what waves are in physics, then dives into how sound waves propagate. That's two concepts ("Waves" and "Sound Waves"), not one.
+
 **Title**: Specific and searchable. "Convertible Notes" not "Startup Financing." "TCP Congestion Control" not "Networking." A title should match what someone would type if they were searching for this concept.
 
 **Explanation**: A corrected, sharpened version of what the user said about this concept. This is the reference text the user will see when they browse their knowledge library, so it needs to be right.
