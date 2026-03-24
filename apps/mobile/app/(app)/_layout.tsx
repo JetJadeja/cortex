@@ -1,14 +1,34 @@
 import React from "react";
-import { Stack } from "expo-router";
-import { colors } from "../../src/constants/theme";
+import { Tabs } from "expo-router";
+import { colors, fontSize } from "../../src/constants/theme";
 
 export default function AppLayout() {
   return (
-    <Stack
+    <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        tabBarStyle: {
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+          borderTopWidth: 0.5,
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: fontSize.xs,
+          fontWeight: "600",
+        },
       }}
-    />
+    >
+      <Tabs.Screen
+        name="explore"
+        options={{ title: "Explore" }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{ title: "Record" }}
+      />
+    </Tabs>
   );
 }
