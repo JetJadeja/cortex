@@ -2,6 +2,8 @@
 -- pgvector HNSW indexes have a 2000-dim limit for the vector type.
 -- The original 3072-dim index silently failed to create.
 
+set search_path to public, extensions;
+
 -- Drop the old index and function that reference vector(3072)
 drop index if exists idx_cards_embedding;
 drop function if exists match_cards;

@@ -1,3 +1,5 @@
+set search_path to public, extensions;
+
 create or replace function match_cards(
   query_embedding vector(3072),
   match_user_id uuid,
