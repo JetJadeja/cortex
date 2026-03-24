@@ -6,6 +6,7 @@ export interface Card {
   id: string;
   user_id: string;
   concept_id: string;
+  session_id: string | null;
   card_type: CardType;
   front: string;
   back: string;

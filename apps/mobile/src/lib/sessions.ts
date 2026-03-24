@@ -6,6 +6,7 @@ export interface Session {
   id: string;
   user_id: string;
   transcript: string;
+  summary: string | null;
   processing_status: ProcessingStatus;
   created_at: string;
 }
