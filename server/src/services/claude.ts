@@ -80,7 +80,7 @@ export async function extractConcepts(transcript: string): Promise<ExtractedConc
   const prompt = loadPrompt("process-transcript", { transcript });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 16384,
     messages: [{ role: "user", content: prompt }],
     output_config: {
@@ -104,7 +104,7 @@ export async function generateRecordingSummary(transcript: string): Promise<stri
   const prompt = loadPrompt("recording-summary", { transcript });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 100,
     messages: [{ role: "user", content: prompt }],
   });
@@ -125,7 +125,7 @@ export async function evaluateReview(
   });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [
       {
@@ -165,7 +165,7 @@ export async function chatAboutConcept(
   });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [{ role: "user", content: systemPrompt }],
   });
