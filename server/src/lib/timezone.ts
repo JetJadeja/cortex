@@ -31,7 +31,29 @@ function getTimezoneOffsetMs(tz: string, date: Date): number {
   return new Date(tzStr).getTime() - new Date(utcStr).getTime();
 }
 
-function isValidTimezone(tz: string | undefined): tz is string {
+/** Returns today's date as YYYY-MM-DD in the given timezone. */
+export function todayDateString(timezone: string): string {
+  return formatDateInTz(new Date(), timezone);
+}
+
+/** Returns tomorrow's date as YYYY-MM-DD in the given timezone. */
+export function tomorrowDateString(timezone: string): string {
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  return formatDateInTz(tomorrow, timezone);
+}
+
+function formatDateInTz(date: Date, timezone: string): string {
+  const tz = isValidTimezone(timezone) ? timezone : "UTC";
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date); // en-CA gives YYYY-MM-DD
+}
+
+export function isValidTimezone(tz: string | undefined): tz is string {
   if (!tz) return false;
   try {
     Intl.DateTimeFormat(undefined, { timeZone: tz });
