@@ -1,30 +1,39 @@
 import { supabase } from "../lib/supabase";
-import { midnightToday } from "../lib/timezone";
+import { midnightToday, todayDateString } from "../lib/timezone";
 
-export async function getMidnightForUser(userId: string): Promise<Date> {
+export async function getMidnightForUser(
+  userId: string,
+): Promise<{ midnight: Date; timezone: string }> {
   const { data } = await supabase
     .from("profiles")
     .select("preferences")
     .eq("user_id", userId)
     .single();
 
-  const timezone = data?.preferences?.timezone as string | undefined;
-  return midnightToday(timezone);
+  const timezone = (data?.preferences?.timezone as string | undefined) ?? "UTC";
+  return { midnight: midnightToday(timezone), timezone };
 }
 
-/** Due cards minus cards that have been *passed* today (confidence >= 3). */
-export async function countDueRemaining(userId: string, midnight: Date): Promise<number> {
-  const passedIds = await getPassedCardIdsToday(userId, midnight);
+/** Due cards minus cards that have been *mastered* today (schedule_applied = true). */
+export async function countDueRemaining(
+  userId: string,
+  timezone: string,
+): Promise<number> {
+  const masteredIds = await getMasteredCardIdsToday(userId, timezone);
+  const today = todayDateString(timezone);
   const { data: dueCards } = await supabase
     .from("cards")
     .select("id")
     .eq("user_id", userId)
-    .lte("due_at", new Date().toISOString());
+    .lte("due_date", today);
 
-  return (dueCards ?? []).filter((c) => !passedIds.has(c.id)).length;
+  return (dueCards ?? []).filter((c) => !masteredIds.has(c.id)).length;
 }
 
-export async function countReviewsToday(userId: string, midnight: Date): Promise<number> {
+export async function countReviewsToday(
+  userId: string,
+  midnight: Date,
+): Promise<number> {
   const { count } = await supabase
     .from("review_history")
     .select("id", { count: "exact", head: true })
@@ -34,13 +43,21 @@ export async function countReviewsToday(userId: string, midnight: Date): Promise
   return count ?? 0;
 }
 
-/** Card IDs that the user has successfully recalled today (confidence >= 3). */
-export async function getPassedCardIdsToday(userId: string, midnight: Date): Promise<Set<string>> {
+/**
+ * Card IDs where FSRS completion call fired today (schedule_applied = true).
+ * Under the two-layer system, this means the card is done for the day.
+ */
+export async function getMasteredCardIdsToday(
+  userId: string,
+  timezone: string,
+): Promise<Set<string>> {
+  const midnight = midnightToday(timezone);
   const { data } = await supabase
     .from("review_history")
     .select("card_id")
     .eq("user_id", userId)
     .gte("created_at", midnight.toISOString())
+    .eq("schedule_applied", true)
     .gte("confidence_rating", 3)
     .not("card_id", "is", null);
 
@@ -48,7 +65,10 @@ export async function getPassedCardIdsToday(userId: string, midnight: Date): Pro
 }
 
 /** All card IDs that appear in today's review_history (for fresh vs recycled split). */
-export async function getReviewedCardIdsToday(userId: string, midnight: Date): Promise<Set<string>> {
+export async function getReviewedCardIdsToday(
+  userId: string,
+  midnight: Date,
+): Promise<Set<string>> {
   const { data } = await supabase
     .from("review_history")
     .select("card_id")
@@ -57,20 +77,4 @@ export async function getReviewedCardIdsToday(userId: string, midnight: Date): P
     .not("card_id", "is", null);
 
   return new Set((data ?? []).map((r) => r.card_id));
-}
-
-/** How many times this card has been reviewed today (for attempt-degraded grading). */
-export async function getAttemptCountToday(
-  userId: string,
-  cardId: string,
-  midnight: Date,
-): Promise<number> {
-  const { count } = await supabase
-    .from("review_history")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("card_id", cardId)
-    .gte("created_at", midnight.toISOString());
-
-  return count ?? 0;
 }
