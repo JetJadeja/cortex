@@ -121,7 +121,18 @@ export async function getNextPhase1Item(userId: string, midnight: Date): Promise
   // Recycled cards go after all fresh cards — sorted by due_at as a stable tiebreaker
   recycled.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
 
-  const card = fresh[0] ?? recycled[0];
+  const queue = [...fresh, ...recycled];
+
+  // Don't serve the card that was just reviewed unless there are ≤ 2 cards left.
+  // This prevents the Quizlet problem of seeing the same card twice in a row.
+  if (queue.length > 2) {
+    const lastReviewedCardId = await getLastReviewedCardId(userId, midnight);
+    if (lastReviewedCardId && queue[0].id === lastReviewedCardId) {
+      queue.push(queue.shift()!);
+    }
+  }
+
+  const card = queue[0];
   if (!card) return null;
 
   return {
@@ -181,6 +192,19 @@ function priorityTier(card: DueCard): number {
   if (concept?.priority === "core") return 1;
 
   return 2;
+}
+
+async function getLastReviewedCardId(userId: string, midnight: Date): Promise<string | null> {
+  const { data } = await supabase
+    .from("review_history")
+    .select("card_id")
+    .eq("user_id", userId)
+    .gte("created_at", midnight.toISOString())
+    .not("card_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  return data?.[0]?.card_id ?? null;
 }
 
 async function getLastReviewDate(cardId: string): Promise<Date | null> {
