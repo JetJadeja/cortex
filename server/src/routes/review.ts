@@ -44,10 +44,14 @@ reviewRouter.post("/advance", async (req: Request, res: Response) => {
     }
 
     if (action === "browse") {
-      const item = await getNextPhase2Item(userId);
+      const [item, dueCount] = await Promise.all([
+        getNextPhase2Item(userId),
+        countDueRemaining(userId, midnight),
+      ]);
       res.json({
         state: item ? "browse" : "empty",
         remaining: 0,
+        due_count: dueCount,
         attempt_id: item ? crypto.randomUUID() : null,
         item,
       });
