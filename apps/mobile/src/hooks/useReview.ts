@@ -15,6 +15,7 @@ interface ReviewItem {
 interface AdvanceResponse {
   state: "active" | "done" | "browse" | "empty";
   remaining: number;
+  due_count?: number;
   attempt_id: string | null;
   item: ReviewItem | null;
   message?: string;
@@ -25,6 +26,7 @@ export interface UseReviewReturn {
   item: ReviewItem | null;
   attemptId: string | null;
   remaining: number;
+  dueCount: number;
   message: string | null;
   isSubmitting: boolean;
   error: string | null;
@@ -39,6 +41,7 @@ export function useReview(): UseReviewReturn {
   const [state, setState] = useState<ReviewState>("loading");
   const [item, setItem] = useState<ReviewItem | null>(null);
   const [remaining, setRemaining] = useState(0);
+  const [dueCount, setDueCount] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +59,7 @@ export function useReview(): UseReviewReturn {
       setItem(res.item);
       setAttemptId(res.attempt_id);
       setRemaining(res.remaining);
+      setDueCount(res.due_count ?? res.remaining);
       setMessage(res.message ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Review failed");
@@ -103,6 +107,7 @@ export function useReview(): UseReviewReturn {
     item,
     attemptId,
     remaining,
+    dueCount,
     message,
     isSubmitting,
     error,
