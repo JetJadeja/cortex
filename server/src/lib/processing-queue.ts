@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+import { supabase } from "./supabase";
 import { extractConcepts } from "../services/claude";
 import {
   writeConceptsAndCards,
@@ -27,8 +28,16 @@ async function processJob(
   attempt = 1,
 ): Promise<void> {
   try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("preferences")
+      .eq("user_id", userId)
+      .single();
+
+    const timezone = (profile?.preferences?.timezone as string | undefined) ?? "UTC";
+
     const concepts = await extractConcepts(transcript);
-    await writeConceptsAndCards(userId, sessionId, concepts);
+    await writeConceptsAndCards(userId, sessionId, concepts, timezone);
     await updateSessionStatus(sessionId, "complete");
     console.log(
       `Session ${sessionId} processed: ${concepts.length} concepts extracted`,

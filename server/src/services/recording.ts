@@ -74,6 +74,7 @@ export async function writeConceptsAndCards(
   userId: string,
   sessionId: string,
   concepts: ConceptInput[],
+  timezone: string,
 ): Promise<void> {
   const allEmbedTexts: string[] = [];
 
@@ -128,6 +129,7 @@ export async function writeConceptsAndCards(
         concept.title,
         card,
         embedding,
+        timezone,
       );
       if (action === "add") cardsAdded++;
     }

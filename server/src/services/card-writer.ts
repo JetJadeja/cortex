@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { generateEmbedding, buildEmbedText } from "./embedding";
 import { deduplicateCard, DedupDecision } from "./dedup";
+import { tomorrowDueAt, tomorrowDueDate } from "../lib/due-date";
 
 export interface CardInput {
   front: string;
@@ -14,6 +15,7 @@ export async function processCardWithDedup(
   conceptTitle: string,
   card: CardInput,
   precomputedEmbedding: number[] | null,
+  timezone: string,
 ): Promise<"add" | "discard" | "merge"> {
   let embedding = precomputedEmbedding;
 
@@ -30,7 +32,7 @@ export async function processCardWithDedup(
   }
 
   if (embedding === null) {
-    await insertCard(userId, sessionId, conceptId, card.front, card.back, null);
+    await insertCard(userId, sessionId, conceptId, card.front, card.back, null, timezone);
     await logDedupDecision(userId, sessionId, card, {
       action: "add",
       mergeTargetId: null,
@@ -57,6 +59,7 @@ export async function processCardWithDedup(
       card,
       embedding,
       decision,
+      timezone,
     );
     await logDedupDecision(userId, sessionId, card, effective);
     return effective.action;
@@ -65,7 +68,7 @@ export async function processCardWithDedup(
       `Dedup failed for card "${card.front}", inserting with embedding:`,
       err instanceof Error ? err.message : err,
     );
-    await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding);
+    await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding, timezone);
     await logDedupDecision(userId, sessionId, card, {
       action: "add",
       mergeTargetId: null,
@@ -84,10 +87,11 @@ async function applyDedupDecision(
   card: CardInput,
   embedding: number[],
   decision: DedupDecision,
+  timezone: string,
 ): Promise<DedupDecision> {
   switch (decision.action) {
     case "add":
-      await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding);
+      await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding, timezone);
       return decision;
 
     case "discard":
@@ -95,7 +99,7 @@ async function applyDedupDecision(
 
     case "merge": {
       if (!decision.mergeTargetId || !decision.mergedBack) {
-        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding);
+        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding, timezone);
         return {
           ...decision,
           action: "add",
@@ -110,7 +114,7 @@ async function applyDedupDecision(
         .single();
 
       if (fetchError || !existing) {
-        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding);
+        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding, timezone);
         return {
           ...decision,
           action: "add",
@@ -139,7 +143,7 @@ async function applyDedupDecision(
       );
 
       if (!updated) {
-        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding);
+        await insertCard(userId, sessionId, conceptId, card.front, card.back, embedding, timezone);
         return {
           ...decision,
           action: "add",
@@ -159,6 +163,7 @@ async function insertCard(
   front: string,
   back: string,
   embedding: number[] | null,
+  timezone: string,
 ): Promise<void> {
   const row: Record<string, unknown> = {
     user_id: userId,
@@ -166,6 +171,8 @@ async function insertCard(
     concept_id: conceptId,
     front,
     back,
+    due_at: tomorrowDueAt(timezone).toISOString(),
+    due_date: tomorrowDueDate(timezone),
   };
   if (embedding) {
     row.embedding = embedding;
