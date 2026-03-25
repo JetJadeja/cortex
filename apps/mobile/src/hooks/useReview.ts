@@ -1,92 +1,110 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useContext, useEffect, useRef } from "react";
 import { api } from "../lib/api";
+import { AuthContext } from "../../app/_layout";
+
+type ReviewState = "loading" | "active" | "done" | "browse" | "empty";
 
 interface ReviewItem {
-  id: string;
-  question: string;
-  answer: string;
-  confidence: number;
+  type: "card";
+  card_id: string;
+  concept_id: string;
+  front: string;
+  back: string;
 }
 
-interface ReviewSession {
-  id: string;
-  items: ReviewItem[];
-  score: number | null;
+interface AdvanceResponse {
+  state: "active" | "done" | "browse" | "empty";
+  remaining: number;
+  attempt_id: string | null;
+  item: ReviewItem | null;
+  message?: string;
 }
 
-interface UseReviewReturn {
-  session: ReviewSession | null;
-  currentIndex: number;
-  isLoading: boolean;
+export interface UseReviewReturn {
+  state: ReviewState;
+  item: ReviewItem | null;
+  remaining: number;
+  message: string | null;
+  isSubmitting: boolean;
   error: string | null;
-  loadSession: (recordingId: string) => Promise<void>;
-  submitAnswer: (itemId: string, response: string) => Promise<void>;
-  nextItem: () => void;
-  previousItem: () => void;
+  start: () => Promise<void>;
+  submitRating: (confidence: number, effort: boolean) => Promise<void>;
+  startBrowsing: () => Promise<void>;
+  nextBrowseCard: () => Promise<void>;
 }
 
 export function useReview(): UseReviewReturn {
-  const [session, setSession] = useState<ReviewSession | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const auth = useContext(AuthContext);
+  const [state, setState] = useState<ReviewState>("loading");
+  const [item, setItem] = useState<ReviewItem | null>(null);
+  const [remaining, setRemaining] = useState(0);
+  const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadSession = useCallback(async (recordingId: string) => {
-    setIsLoading(true);
+  const token = auth?.session?.access_token;
+
+  const advance = useCallback(async (body: Record<string, unknown>) => {
+    if (!token) return;
+    setIsSubmitting(true);
     setError(null);
     try {
-      const data = await api.get<ReviewSession>(`/reviews/${recordingId}`);
-      setSession(data);
-      setCurrentIndex(0);
+      const res = await api.post<AdvanceResponse>("/review/advance", body, token);
+      setState(res.state);
+      setItem(res.item);
+      setRemaining(res.remaining);
+      setMessage(res.message ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load review session");
+      setError(err instanceof Error ? err.message : "Review failed");
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
-  }, []);
+  }, [token]);
 
-  const submitAnswer = useCallback(async (itemId: string, response: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await api.post<{ score: number }>("/evaluate-review", {
-        itemId,
-        response,
-      });
-      setSession((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          items: prev.items.map((item) =>
-            item.id === itemId ? { ...item, confidence: result.score } : item
-          ),
-        };
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to submit answer");
-    } finally {
-      setIsLoading(false);
+  const hasStarted = useRef(false);
+
+  const start = useCallback(async () => {
+    setState("loading");
+    await advance({ action: "next" });
+  }, [advance]);
+
+  // Auto-start when token becomes available (handles auth race)
+  useEffect(() => {
+    if (token && !hasStarted.current) {
+      hasStarted.current = true;
+      start();
     }
-  }, []);
+  }, [token, start]);
 
-  const nextItem = useCallback(() => {
-    setCurrentIndex((prev) =>
-      session ? Math.min(prev + 1, session.items.length - 1) : prev
-    );
-  }, [session]);
+  const submitRating = useCallback(async (confidence: number, effort: boolean) => {
+    if (!item || isSubmitting) return;
+    await advance({
+      action: "rate",
+      card_id: item.card_id,
+      concept_id: item.concept_id,
+      confidence,
+      effort,
+    });
+  }, [advance, item, isSubmitting]);
 
-  const previousItem = useCallback(() => {
-    setCurrentIndex((prev) => Math.max(prev - 1, 0));
-  }, []);
+  const startBrowsing = useCallback(async () => {
+    await advance({ action: "browse" });
+  }, [advance]);
+
+  const nextBrowseCard = useCallback(async () => {
+    await advance({ action: "browse" });
+  }, [advance]);
 
   return {
-    session,
-    currentIndex,
-    isLoading,
+    state,
+    item,
+    remaining,
+    message,
+    isSubmitting,
     error,
-    loadSession,
-    submitAnswer,
-    nextItem,
-    previousItem,
+    start,
+    submitRating,
+    startBrowsing,
+    nextBrowseCard,
   };
 }
