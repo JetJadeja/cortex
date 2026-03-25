@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import { Tabs } from "expo-router";
 import { colors, fontSize } from "../../src/constants/theme";
 import { api } from "../../src/lib/api";
+import { onDueCount } from "../../src/lib/due-count";
 import { AuthContext } from "../_layout";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -21,7 +22,14 @@ export default function AppLayout() {
       .catch(() => {});
   }, [auth?.session?.access_token]);
 
-  // Poll on an interval + on app foreground
+  // Instant updates from review actions
+  useEffect(() => {
+    return onDueCount((count) => {
+      setDueCount(count > 0 ? count : undefined);
+    });
+  }, []);
+
+  // Poll for external changes (new cards processed) + app foreground
   useEffect(() => {
     fetchStatus();
     intervalRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS);

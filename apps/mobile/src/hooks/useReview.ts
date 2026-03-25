@@ -1,5 +1,6 @@
 import { useState, useCallback, useContext, useEffect, useRef } from "react";
 import { api } from "../lib/api";
+import { emitDueCount } from "../lib/due-count";
 import { AuthContext } from "../../app/_layout";
 
 type ReviewState = "loading" | "active" | "done" | "browse" | "empty";
@@ -59,7 +60,9 @@ export function useReview(): UseReviewReturn {
       setItem(res.item);
       setAttemptId(res.attempt_id);
       setRemaining(res.remaining);
-      setDueCount(res.due_count ?? res.remaining);
+      const newDueCount = res.due_count ?? res.remaining;
+      setDueCount(newDueCount);
+      emitDueCount(newDueCount);
       setMessage(res.message ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Review failed");
