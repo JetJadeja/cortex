@@ -1,14 +1,21 @@
 import { supabase } from "../lib/supabase";
-import { scheduleCard, gradeFromRating, Rating } from "../lib/fsrs";
-import { getReviewedCardIdsToday } from "./review-state";
+import {
+  scheduleCard,
+  gradeFromConfidence,
+  degradeGrade,
+  applyEffortModifier,
+} from "../lib/fsrs";
+import {
+  getPassedCardIdsToday,
+  getReviewedCardIdsToday,
+  getAttemptCountToday,
+} from "./review-state";
 
 export interface RatingInput {
   card_id: string;
   concept_id: string;
-  review_type: "card" | "quiz";
-  effort: number;
   confidence: number;
-  phase: 1 | 2;
+  effort: boolean;
   user_answer?: string;
 }
 
@@ -20,23 +27,24 @@ export interface ReviewItem {
   back: string;
 }
 
-export async function processRating(userId: string, input: RatingInput): Promise<void> {
-  const grade = gradeFromRating(input.effort, input.confidence);
-  const shouldApplySchedule = input.phase === 1 || grade === Rating.Again;
+export async function processRating(userId: string, midnight: Date, input: RatingInput): Promise<void> {
+  const isPassed = input.confidence >= 3;
 
-  await supabase.from("review_history").insert({
+  const { error } = await supabase.from("review_history").insert({
     user_id: userId,
     card_id: input.card_id,
     concept_id: input.concept_id,
-    review_type: input.review_type,
-    effort_rating: input.effort,
+    review_type: "card",
     confidence_rating: input.confidence,
+    effort: input.effort,
     was_voice: !!input.user_answer,
-    phase: input.phase,
-    schedule_applied: shouldApplySchedule,
+    phase: 1,
+    schedule_applied: isPassed,
   });
 
-  if (!shouldApplySchedule) return;
+  if (error) throw new Error(`Failed to insert review_history: ${error.message}`);
+
+  if (!isPassed) return;
 
   const { data: card } = await supabase
     .from("cards")
@@ -46,15 +54,21 @@ export async function processRating(userId: string, input: RatingInput): Promise
 
   if (!card) return;
 
+  const attemptCount = await getAttemptCountToday(userId, input.card_id, midnight);
+  const baseGrade = gradeFromConfidence(input.confidence);
+  const grade = degradeGrade(baseGrade, attemptCount);
+
   const lastReviewedAt = await getLastReviewDate(input.card_id);
   const now = new Date();
 
-  const next = scheduleCard(
+  let next = scheduleCard(
     { due_at: new Date(card.due_at), stability: card.stability, difficulty: card.difficulty },
     grade,
     now,
     lastReviewedAt,
   );
+
+  next = applyEffortModifier(next, input.effort, now);
 
   await supabase
     .from("cards")
@@ -67,7 +81,11 @@ export async function processRating(userId: string, input: RatingInput): Promise
 }
 
 export async function getNextPhase1Item(userId: string, midnight: Date): Promise<ReviewItem | null> {
-  const reviewedIds = await getReviewedCardIdsToday(userId, midnight);
+  const [passedIds, reviewedIds] = await Promise.all([
+    getPassedCardIdsToday(userId, midnight),
+    getReviewedCardIdsToday(userId, midnight),
+  ]);
+
   const now = new Date().toISOString();
 
   const { data: dueCards } = await supabase
@@ -79,17 +97,32 @@ export async function getNextPhase1Item(userId: string, midnight: Date): Promise
 
   if (!dueCards) return null;
 
-  const unreviewed = dueCards.filter((c) => !reviewedIds.has(c.id));
-  if (unreviewed.length === 0) return null;
+  const remaining = dueCards.filter((c) => !passedIds.has(c.id));
+  if (remaining.length === 0) return null;
 
-  const sorted = unreviewed.sort((a, b) => {
+  const fresh: typeof remaining = [];
+  const recycled: typeof remaining = [];
+
+  for (const card of remaining) {
+    if (reviewedIds.has(card.id)) {
+      recycled.push(card);
+    } else {
+      fresh.push(card);
+    }
+  }
+
+  fresh.sort((a, b) => {
     const pa = priorityTier(a);
     const pb = priorityTier(b);
     if (pa !== pb) return pa - pb;
     return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
   });
 
-  const card = sorted[0];
+  // Recycled cards go after all fresh cards — sorted by due_at as a stable tiebreaker
+  recycled.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
+
+  const card = fresh[0] ?? recycled[0];
+  if (!card) return null;
 
   return {
     type: "card",
@@ -100,21 +133,24 @@ export async function getNextPhase1Item(userId: string, midnight: Date): Promise
   };
 }
 
-export async function getNextPhase2Item(userId: string, midnight: Date): Promise<ReviewItem | null> {
-  const reviewedIds = await getReviewedCardIdsToday(userId, midnight);
-  const now = new Date().toISOString();
+export async function getNextPhase2Item(userId: string): Promise<ReviewItem | null> {
+  const { count } = await supabase
+    .from("cards")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  const total = count ?? 0;
+  if (total === 0) return null;
+
+  const offset = Math.floor(Math.random() * total);
 
   const { data: cards } = await supabase
     .from("cards")
     .select("id, concept_id, front, back")
     .eq("user_id", userId)
-    .gt("due_at", now)
-    .order("due_at", { ascending: true })
-    .limit(50);
+    .range(offset, offset);
 
-  if (!cards) return null;
-
-  const card = cards.find((c) => !reviewedIds.has(c.id));
+  const card = cards?.[0];
   if (!card) return null;
 
   return {
