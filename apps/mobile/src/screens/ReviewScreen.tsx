@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { View, Text, Modal, StyleSheet, ActivityIndicator } from "react-native";
+import React, { useState, useRef, useEffect } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
 import { Button } from "../components/Button";
@@ -12,33 +12,33 @@ export const ReviewScreen: React.FC = () => {
   const review = useReview();
   const [isRevealed, setIsRevealed] = useState(false);
   const [effort, setEffort] = useState(true);
-  const [modalDismissed, setModalDismissed] = useState(false);
-  const dismissedForCount = useRef(0);
+  const sessionTotalRef = useRef(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (review.state === "loading") {
+      sessionTotalRef.current = 0;
+    } else if (
+      review.state === "active" &&
+      sessionTotalRef.current === 0 &&
+      review.remaining > 0
+    ) {
+      sessionTotalRef.current = review.remaining;
+    }
+  }, [review.state, review.remaining]);
+
+  const sessionTotal = sessionTotalRef.current;
+  const progress =
+    sessionTotal > 0
+      ? Math.max(0, (sessionTotal - review.remaining) / sessionTotal)
+      : 0;
+
+  useEffect(() => {
     setIsRevealed(false);
     setEffort(true);
   }, [review.attemptId]);
 
-  // Re-show modal if due count increases after a previous dismissal
-  const shouldShowModal =
-    review.state === "browse" &&
-    review.dueCount > 0 &&
-    (!modalDismissed || review.dueCount > dismissedForCount.current);
-
-  const handleDismissModal = () => {
-    setModalDismissed(true);
-    dismissedForCount.current = review.dueCount;
-  };
-
   const handleStartReview = () => {
-    setModalDismissed(false);
-    dismissedForCount.current = 0;
     review.start();
-  };
-
-  const handleConfidence = (confidence: number) => {
-    review.submitRating(confidence, effort);
   };
 
   if (review.state === "loading") {
@@ -52,8 +52,10 @@ export const ReviewScreen: React.FC = () => {
   if (review.state === "empty") {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.heading}>No cards yet</Text>
-        <Text style={styles.sub}>Record something to get started.</Text>
+        <Text style={styles.stateHeading}>Nothing here yet</Text>
+        <Text style={styles.stateSub}>
+          Record what you've learned{"\n"}and your cards will appear here.
+        </Text>
       </SafeAreaView>
     );
   }
@@ -61,42 +63,30 @@ export const ReviewScreen: React.FC = () => {
   if (review.state === "done") {
     return (
       <SafeAreaView style={styles.centered}>
-        <Text style={styles.heading}>You're done!</Text>
-        <Text style={styles.sub}>All caught up for today.</Text>
+        <Text style={styles.doneHeading}>All caught up</Text>
+        <Text style={styles.stateSub}>
+          You've reviewed everything due today.
+        </Text>
         <View style={styles.browseAction}>
-          <Button title="See random cards" onPress={review.startBrowsing} variant="secondary" />
+          <Button
+            title="Browse random cards"
+            onPress={review.startBrowsing}
+            variant="secondary"
+          />
         </View>
       </SafeAreaView>
     );
   }
 
   if (review.state === "browse") {
+    const dueLabel = review.dueCount === 1
+      ? "Review 1 card"
+      : `Review ${review.dueCount} cards`;
+
     return (
       <SafeAreaView style={styles.container}>
-        <Modal
-          visible={shouldShowModal}
-          transparent
-          animationType="fade"
-          onRequestClose={handleDismissModal}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {review.dueCount} {review.dueCount === 1 ? "card" : "cards"} to review
-              </Text>
-              <Text style={styles.modalSub}>
-                New cards are ready for review.
-              </Text>
-              <View style={styles.modalActions}>
-                <Button title="Review now" onPress={handleStartReview} />
-                <Button title="Keep browsing" onPress={handleDismissModal} variant="ghost" />
-              </View>
-            </View>
-          </View>
-        </Modal>
-
         <View style={styles.header}>
-          <Text style={styles.browseLabel}>RANDOM BROWSE</Text>
+          <Text style={styles.browseLabel}>BROWSING</Text>
         </View>
         <View style={styles.cardArea}>
           {review.item && (
@@ -108,10 +98,18 @@ export const ReviewScreen: React.FC = () => {
           )}
         </View>
         <View style={styles.footer}>
+          {review.dueCount > 0 && (
+            <Button
+              title={dueLabel}
+              onPress={handleStartReview}
+              disabled={review.isSubmitting}
+            />
+          )}
           <Button
-            title="Next"
+            title="Next card"
             onPress={review.nextBrowseCard}
             disabled={review.isSubmitting}
+            variant="secondary"
           />
         </View>
       </SafeAreaView>
@@ -122,8 +120,17 @@ export const ReviewScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.remaining}>{review.remaining} left</Text>
+        <View style={styles.progressTrack}>
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${Math.min(progress * 100, 100)}%` },
+            ]}
+          />
+        </View>
+        <Text style={styles.remaining}>{review.remaining} remaining</Text>
       </View>
+
       <View style={styles.cardArea}>
         {review.item && (
           <ReviewCard
@@ -134,15 +141,17 @@ export const ReviewScreen: React.FC = () => {
           />
         )}
       </View>
-      {isRevealed && (
-        <View style={styles.ratingArea}>
-          <EffortToggle value={effort} onChange={setEffort} />
-          <ConfidenceRating
-            onSelect={handleConfidence}
-            disabled={review.isSubmitting}
-          />
-        </View>
-      )}
+
+      <View style={styles.ratingArea}>
+        <EffortToggle value={effort} onChange={setEffort} />
+        <ConfidenceRating
+          onSelect={(c) => review.submitRating(c, effort)}
+          disabled={review.isSubmitting}
+          revealed={isRevealed}
+          disabledOptions={effort ? [] : [4]}
+        />
+      </View>
+
       {review.error && <Text style={styles.error}>{review.error}</Text>}
     </SafeAreaView>
   );
@@ -163,13 +172,24 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  progressTrack: {
+    height: 2,
+    backgroundColor: colors.surface,
+    borderRadius: 1,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 1,
   },
   remaining: {
-    fontSize: fontSize.sm,
+    fontSize: 12,
     fontWeight: "600",
     color: colors.textMuted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   browseLabel: {
     fontSize: 10,
@@ -187,17 +207,25 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: spacing.md,
+    gap: spacing.sm,
   },
-  heading: {
+  stateHeading: {
     fontSize: fontSize.xl,
     fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.sm,
   },
-  sub: {
+  doneHeading: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+  stateSub: {
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: "center",
+    lineHeight: 24,
   },
   browseAction: {
     marginTop: spacing.xl,
@@ -207,35 +235,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.error,
     textAlign: "center",
-    marginTop: spacing.sm,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    width: "100%",
-    gap: spacing.md,
-  },
-  modalTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: "700",
-    color: colors.text,
-    textAlign: "center",
-  },
-  modalSub: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  modalActions: {
-    gap: spacing.sm,
     marginTop: spacing.sm,
   },
 });
