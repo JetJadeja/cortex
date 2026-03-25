@@ -1,4 +1,4 @@
-import { midnightToday, tomorrowDateString, isValidTimezone } from "./timezone";
+import { midnightToday, todayDateString, tomorrowDateString, isValidTimezone } from "./timezone";
 
 /** Adds intervalDays to `now` and returns the resulting Date. */
 export function computeDueAt(now: Date, intervalDays: number): Date {
@@ -27,15 +27,15 @@ export function applyEffortHalving(intervalDays: number): number {
   return Math.max(1, Math.round(intervalDays / 2));
 }
 
-/** Returns tomorrow at midnight in the user's timezone as a UTC Date. */
-export function tomorrowDueAt(timezone: string): Date {
+/** Returns the due date for newly created cards as a UTC Date. */
+export function newCardDueAt(timezone: string): Date {
   const todayMidnight = midnightToday(timezone);
   const tomorrow = new Date(todayMidnight);
   tomorrow.setDate(tomorrow.getDate() + 1);
   return tomorrow;
 }
 
-/** Returns tomorrow's date as YYYY-MM-DD in the user's timezone. */
-export function tomorrowDueDate(timezone: string): string {
+/** Returns the due date for newly created cards as YYYY-MM-DD. */
+export function newCardDueDate(timezone: string): string {
   return tomorrowDateString(timezone);
 }

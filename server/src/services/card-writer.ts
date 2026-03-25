@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { generateEmbedding, buildEmbedText } from "./embedding";
 import { deduplicateCard, DedupDecision } from "./dedup";
-import { tomorrowDueAt, tomorrowDueDate } from "../lib/due-date";
+import { newCardDueAt, newCardDueDate } from "../lib/due-date";
 
 export interface CardInput {
   front: string;
@@ -171,8 +171,8 @@ async function insertCard(
     concept_id: conceptId,
     front,
     back,
-    due_at: tomorrowDueAt(timezone).toISOString(),
-    due_date: tomorrowDueDate(timezone),
+    due_at: newCardDueAt(timezone).toISOString(),
+    due_date: newCardDueDate(timezone),
   };
   if (embedding) {
     row.embedding = embedding;
