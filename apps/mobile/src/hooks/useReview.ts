@@ -23,6 +23,7 @@ interface AdvanceResponse {
 export interface UseReviewReturn {
   state: ReviewState;
   item: ReviewItem | null;
+  attemptId: string | null;
   remaining: number;
   message: string | null;
   isSubmitting: boolean;
@@ -38,6 +39,7 @@ export function useReview(): UseReviewReturn {
   const [state, setState] = useState<ReviewState>("loading");
   const [item, setItem] = useState<ReviewItem | null>(null);
   const [remaining, setRemaining] = useState(0);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export function useReview(): UseReviewReturn {
       const res = await api.post<AdvanceResponse>("/review/advance", body, token);
       setState(res.state);
       setItem(res.item);
+      setAttemptId(res.attempt_id);
       setRemaining(res.remaining);
       setMessage(res.message ?? null);
     } catch (err) {
@@ -98,6 +101,7 @@ export function useReview(): UseReviewReturn {
   return {
     state,
     item,
+    attemptId,
     remaining,
     message,
     isSubmitting,

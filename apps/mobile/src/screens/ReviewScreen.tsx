@@ -6,7 +6,6 @@ import { Button } from "../components/Button";
 import { ReviewCard } from "../components/ReviewCard";
 import { ConfidenceRating } from "../components/ConfidenceRating";
 import { EffortToggle } from "../components/EffortToggle";
-import { FailButton } from "../components/FailButton";
 import { useReview } from "../hooks/useReview";
 
 export const ReviewScreen: React.FC = () => {
@@ -17,7 +16,7 @@ export const ReviewScreen: React.FC = () => {
   React.useEffect(() => {
     setIsRevealed(false);
     setEffort(true);
-  }, [review.item?.card_id]);
+  }, [review.attemptId]);
 
   const handleConfidence = (confidence: number) => {
     review.submitRating(confidence, effort);
@@ -61,7 +60,7 @@ export const ReviewScreen: React.FC = () => {
         <View style={styles.cardArea}>
           {review.item && (
             <ReviewCard
-              key={review.item.card_id}
+              key={review.attemptId}
               front={review.item.front}
               back={review.item.back}
             />
@@ -87,7 +86,7 @@ export const ReviewScreen: React.FC = () => {
       <View style={styles.cardArea}>
         {review.item && (
           <ReviewCard
-            key={review.item.card_id}
+            key={review.attemptId}
             front={review.item.front}
             back={review.item.back}
             onRevealed={() => setIsRevealed(true)}
@@ -96,10 +95,6 @@ export const ReviewScreen: React.FC = () => {
       </View>
       {isRevealed && (
         <View style={styles.ratingArea}>
-          <FailButton
-            onPress={() => handleConfidence(1)}
-            disabled={review.isSubmitting}
-          />
           <EffortToggle value={effort} onChange={setEffort} />
           <ConfidenceRating
             onSelect={handleConfidence}
