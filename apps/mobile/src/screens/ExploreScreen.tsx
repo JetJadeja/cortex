@@ -1,32 +1,34 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   SectionList,
-  FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { AuthContext } from "../../app/_layout";
 import { FlipCard } from "../components/FlipCard";
-import { getAllCards, type Card } from "../lib/cards";
+import { CardInfoModal } from "../components/CardInfoModal";
+import { getAllCards, updateCard, deleteCard, type Card } from "../lib/cards";
+import { getHistoryForCard } from "../lib/review-history";
 import { getSessions } from "../lib/sessions";
-import { buildSections, shuffleCards, type ExploreSection } from "../lib/explore-helpers";
+import { buildSections, type ExploreSection } from "../lib/explore-helpers";
 import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
-
-type ExploreMode = "sessions" | "shuffle";
 
 export const ExploreScreen: React.FC = () => {
   const auth = useContext(AuthContext);
   const [sections, setSections] = useState<ExploreSection[]>([]);
   const [allCards, setAllCards] = useState<Card[]>([]);
-  const [shuffledCards, setShuffledCards] = useState<Card[]>([]);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<ExploreMode>("sessions");
   const [loading, setLoading] = useState(true);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [lastReviewed, setLastReviewed] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const selectedIdRef = useRef<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,9 +48,10 @@ export const ExploreScreen: React.FC = () => {
             getAllCards(userId!),
           ]);
           if (cancelled) return;
-          setSections(buildSections(sessionsData, cardsData));
+          const built = buildSections(sessionsData, cardsData);
+          setSections(built);
           setAllCards(cardsData);
-          setShuffledCards(shuffleCards(cardsData));
+          setCollapsedIds(new Set(built.map((s) => s.sessionId)));
         } catch (err) {
           console.error("Failed to fetch explore data:", err);
         } finally {
@@ -61,13 +64,6 @@ export const ExploreScreen: React.FC = () => {
     }, [auth?.session?.user?.id]),
   );
 
-  const handleModePress = useCallback((pressed: ExploreMode) => {
-    if (pressed === "shuffle") {
-      setShuffledCards(shuffleCards(allCards));
-    }
-    setMode(pressed);
-  }, [allCards]);
-
   const toggleSection = useCallback((sessionId: string) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -78,6 +74,49 @@ export const ExploreScreen: React.FC = () => {
       }
       return next;
     });
+  }, []);
+
+  const handleLongPress = useCallback(async (card: Card) => {
+    selectedIdRef.current = card.id;
+    setSelectedCard(card);
+    setLastReviewed(null);
+    try {
+      const history = await getHistoryForCard(card.id);
+      if (selectedIdRef.current !== card.id) return;
+      setLastReviewed(history[0]?.created_at ?? null);
+    } catch {
+      // Non-critical — modal still shows without last reviewed
+    }
+  }, []);
+
+  const handleEdit = useCallback(async (cardId: string, front: string, back: string) => {
+    try {
+      const updated = await updateCard(cardId, { front, back });
+      const replace = (c: Card) => (c.id === cardId ? updated : c);
+      setAllCards((prev) => prev.map(replace));
+      setSections((prev) =>
+        prev.map((s) => ({ ...s, data: s.data.map(replace) })),
+      );
+      setSelectedCard(updated);
+    } catch (err) {
+      console.error("Failed to update card:", err);
+    }
+  }, []);
+
+  const handleDelete = useCallback(async (cardId: string) => {
+    try {
+      await deleteCard(cardId);
+      const remove = (c: Card) => c.id !== cardId;
+      setAllCards((prev) => prev.filter(remove));
+      setSections((prev) =>
+        prev
+          .map((s) => ({ ...s, data: s.data.filter(remove), cardCount: s.data.filter(remove).length }))
+          .filter((s) => s.data.length > 0),
+      );
+      setSelectedCard(null);
+    } catch (err) {
+      console.error("Failed to delete card:", err);
+    }
   }, []);
 
   const displaySections = useMemo(
@@ -93,10 +132,15 @@ export const ExploreScreen: React.FC = () => {
   const renderCard = useCallback(
     ({ item }: { item: Card }) => (
       <View style={styles.cardWrap}>
-        <FlipCard front={item.front} back={item.back} cardType={item.card_type} />
+        <FlipCard
+          front={item.front}
+          back={item.back}
+          cardType={item.card_type}
+          onLongPress={() => handleLongPress(item)}
+        />
       </View>
     ),
-    [],
+    [handleLongPress],
   );
 
   const renderSectionHeader = useCallback(
@@ -140,29 +184,22 @@ export const ExploreScreen: React.FC = () => {
             </View>
           )}
         </View>
-        {!loading && hasCards && (
-          <View style={styles.modeRow}>
-            <TouchableOpacity
-              style={[styles.modePill, mode === "sessions" && styles.modePillActive]}
-              onPress={() => handleModePress("sessions")}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modePillText, mode === "sessions" && styles.modePillTextActive]}>
-                Sessions
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modePill, mode === "shuffle" && styles.modePillActive]}
-              onPress={() => handleModePress("shuffle")}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.modePillText, mode === "shuffle" && styles.modePillTextActive]}>
-                Shuffle
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
+
+      {!loading && hasCards && (
+        <View style={styles.searchWrap}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search cards..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.centered}>
@@ -175,7 +212,7 @@ export const ExploreScreen: React.FC = () => {
             Record something to generate{"\n"}your first cards.
           </Text>
         </View>
-      ) : mode === "sessions" ? (
+      ) : (
         <SectionList
           sections={displaySections}
           keyExtractor={(item) => item.id}
@@ -185,15 +222,15 @@ export const ExploreScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
         />
-      ) : (
-        <FlatList
-          data={shuffledCards}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCard}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
       )}
+      <CardInfoModal
+        card={selectedCard}
+        visible={selectedCard !== null}
+        lastReviewed={lastReviewed}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onClose={() => setSelectedCard(null)}
+      />
     </SafeAreaView>
   );
 };
@@ -206,7 +243,7 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: spacing.xl,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     gap: spacing.sm,
   },
   label: {
@@ -237,30 +274,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textSecondary,
   },
-  modeRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+  searchWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  modePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceLight,
-  },
-  modePillActive: {
-    backgroundColor: colors.primary,
-  },
-  modePillText: {
+  searchInput: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
     fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  modePillTextActive: {
     color: colors.text,
   },
   list: {
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },

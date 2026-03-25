@@ -30,21 +30,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: 3,
-    gap: 3,
+    borderRadius: 10,
+    padding: 2,
+    gap: 2,
   },
   option: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.sm,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   active: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceLight,
   },
   text: {
-    fontSize: fontSize.sm,
+    fontSize: 13,
     fontWeight: "500",
     color: colors.textMuted,
   },
