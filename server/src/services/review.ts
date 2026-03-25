@@ -125,7 +125,7 @@ export async function getNextPhase1Item(userId: string, midnight: Date): Promise
 
   // Don't serve the card that was just reviewed unless there are ≤ 2 cards left.
   // This prevents the Quizlet problem of seeing the same card twice in a row.
-  if (queue.length > 2) {
+  if (queue.length > 1) {
     const lastReviewedCardId = await getLastReviewedCardId(userId, midnight);
     if (lastReviewedCardId && queue[0].id === lastReviewedCardId) {
       queue.push(queue.shift()!);
