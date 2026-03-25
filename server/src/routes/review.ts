@@ -2,7 +2,9 @@ import { Router, Request, Response } from "express";
 import { requireAuth } from "../middleware/auth";
 import { supabase } from "../lib/supabase";
 import { getMidnightForUser, countDueRemaining, countReviewsToday } from "../services/review-state";
-import { processRating, getNextPhase1Item, getNextPhase2Item } from "../services/review";
+import { processRating } from "../services/review";
+import { buildInitialQueue, fetchCardById, getNextPhase2Item } from "../services/review-query";
+import { popNext, setQueue, queueLength, getQueue } from "../services/review-queue";
 
 export const reviewRouter = Router();
 reviewRouter.use(requireAuth);
@@ -10,8 +12,8 @@ reviewRouter.use(requireAuth);
 reviewRouter.get("/status", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
-    const midnight = await getMidnightForUser(userId);
-    const dueCount = await countDueRemaining(userId, midnight);
+    const { timezone } = await getMidnightForUser(userId);
+    const dueCount = await countDueRemaining(userId, timezone);
 
     res.json({ due_count: dueCount });
   } catch (err) {
@@ -25,7 +27,7 @@ reviewRouter.post("/advance", async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
     const { action, card_id, concept_id, confidence, effort, user_answer } = req.body;
-    const midnight = await getMidnightForUser(userId);
+    const { midnight, timezone } = await getMidnightForUser(userId);
 
     if (action === "rate") {
       const conf = Number(confidence);
@@ -34,19 +36,20 @@ reviewRouter.post("/advance", async (req: Request, res: Response) => {
         res.status(400).json({ error: "Missing or invalid rating fields" });
         return;
       }
-      await processRating(userId, midnight, {
+      await processRating(userId, midnight, timezone, {
         card_id,
         concept_id,
         confidence: conf,
         effort: eff,
         user_answer,
       });
+      // Reinsertion is handled inside processRating — no action needed here
     }
 
     if (action === "browse") {
       const [item, dueCount] = await Promise.all([
         getNextPhase2Item(userId),
-        countDueRemaining(userId, midnight),
+        countDueRemaining(userId, timezone),
       ]);
       res.json({
         state: item ? "browse" : "empty",
@@ -58,39 +61,32 @@ reviewRouter.post("/advance", async (req: Request, res: Response) => {
       return;
     }
 
-    const remaining = await countDueRemaining(userId, midnight);
+    // Serve next card from queue
+    const item = await serveNextCard(userId, midnight, timezone);
 
-    if (remaining > 0) {
-      const item = await getNextPhase1Item(userId, midnight);
+    if (item) {
+      const remaining = queueLength(userId, midnight) + 1;
       res.json({
         state: "active",
         remaining,
-        attempt_id: item ? crypto.randomUUID() : null,
+        attempt_id: crypto.randomUUID(),
         item,
       });
       return;
     }
 
-    // No cards remaining — determine if "done" or "empty"
+    // Queue empty — determine done vs empty
     if (action === "rate") {
-      res.json({
-        state: "done",
-        remaining: 0,
-        attempt_id: null,
-        item: null,
-        message: "You're done!",
-      });
+      res.json({ state: "done", remaining: 0, attempt_id: null, item: null, message: "You're done!" });
       return;
     }
 
-    // Initial "next" with nothing due
     const reviewedCount = await countReviewsToday(userId, midnight);
     if (reviewedCount > 0) {
       res.json({ state: "done", remaining: 0, attempt_id: null, item: null });
       return;
     }
 
-    // Check if user has any cards at all
     const { count } = await supabase
       .from("cards")
       .select("id", { count: "exact", head: true })
@@ -107,3 +103,35 @@ reviewRouter.post("/advance", async (req: Request, res: Response) => {
     res.status(500).json({ error: message });
   }
 });
+
+async function serveNextCard(
+  userId: string,
+  midnight: Date,
+  timezone: string,
+): Promise<Awaited<ReturnType<typeof fetchCardById>>> {
+  if (!getQueue(userId, midnight)) {
+    const cardIds = await buildInitialQueue(userId, midnight, timezone);
+    if (cardIds.length === 0) return null;
+    setQueue(userId, midnight, cardIds);
+  }
+
+  for (let attempts = 0; attempts < 50; attempts++) {
+    const cardId = popNext(userId, midnight);
+    if (!cardId) break;
+    const item = await fetchCardById(cardId);
+    if (item) return item;
+  }
+
+  const cardIds = await buildInitialQueue(userId, midnight, timezone);
+  if (cardIds.length === 0) return null;
+  setQueue(userId, midnight, cardIds);
+
+  for (let retry = 0; retry < 50; retry++) {
+    const cardId = popNext(userId, midnight);
+    if (!cardId) return null;
+    const item = await fetchCardById(cardId);
+    if (item) return item;
+  }
+
+  return null;
+}
