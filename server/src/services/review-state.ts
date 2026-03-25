@@ -12,15 +12,16 @@ export async function getMidnightForUser(userId: string): Promise<Date> {
   return midnightToday(timezone);
 }
 
-export async function countDueNotReviewedToday(userId: string, midnight: Date): Promise<number> {
-  const reviewedIds = await getReviewedCardIdsToday(userId, midnight);
+/** Due cards minus cards that have been *passed* today (confidence >= 3). */
+export async function countDueRemaining(userId: string, midnight: Date): Promise<number> {
+  const passedIds = await getPassedCardIdsToday(userId, midnight);
   const { data: dueCards } = await supabase
     .from("cards")
     .select("id")
     .eq("user_id", userId)
     .lte("due_at", new Date().toISOString());
 
-  return (dueCards ?? []).filter((c) => !reviewedIds.has(c.id)).length;
+  return (dueCards ?? []).filter((c) => !passedIds.has(c.id)).length;
 }
 
 export async function countReviewsToday(userId: string, midnight: Date): Promise<number> {
@@ -33,26 +34,20 @@ export async function countReviewsToday(userId: string, midnight: Date): Promise
   return count ?? 0;
 }
 
-export async function countPhase1ReviewsToday(userId: string, midnight: Date): Promise<number> {
-  const { count } = await supabase
+/** Card IDs that the user has successfully recalled today (confidence >= 3). */
+export async function getPassedCardIdsToday(userId: string, midnight: Date): Promise<Set<string>> {
+  const { data } = await supabase
     .from("review_history")
-    .select("id", { count: "exact", head: true })
+    .select("card_id")
     .eq("user_id", userId)
-    .eq("phase", 1)
-    .gte("created_at", midnight.toISOString());
+    .gte("created_at", midnight.toISOString())
+    .gte("confidence_rating", 3)
+    .not("card_id", "is", null);
 
-  return count ?? 0;
+  return new Set((data ?? []).map((r) => r.card_id));
 }
 
-/**
- * After every 3 cards, the 4th slot is a quiz.
- * Quiz positions (1-indexed): 4, 8, 12, 16...
- * So when completedPhase1 % 4 === 3, the next item should be a quiz.
- */
-export function isQuizSlot(completedPhase1: number): boolean {
-  return completedPhase1 > 0 && completedPhase1 % 4 === 3;
-}
-
+/** All card IDs that appear in today's review_history (for fresh vs recycled split). */
 export async function getReviewedCardIdsToday(userId: string, midnight: Date): Promise<Set<string>> {
   const { data } = await supabase
     .from("review_history")
@@ -62,4 +57,20 @@ export async function getReviewedCardIdsToday(userId: string, midnight: Date): P
     .not("card_id", "is", null);
 
   return new Set((data ?? []).map((r) => r.card_id));
+}
+
+/** How many times this card has been reviewed today (for attempt-degraded grading). */
+export async function getAttemptCountToday(
+  userId: string,
+  cardId: string,
+  midnight: Date,
+): Promise<number> {
+  const { count } = await supabase
+    .from("review_history")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("card_id", cardId)
+    .gte("created_at", midnight.toISOString());
+
+  return count ?? 0;
 }
