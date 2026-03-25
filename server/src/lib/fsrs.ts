@@ -34,24 +34,44 @@ export function scheduleCard(
   };
 }
 
-/**
- * Maps the user's dual rating (effort 1-4, confidence 1-4) to an FSRS grade.
- *
- * Effort is the primary signal (1=no recall → Again, 4=instant → Easy).
- * Low confidence dampens the grade — you can't rate Easy if you're guessing.
- */
-const GRADE_MATRIX: Grade[][] = [
-  /*              C=1          C=2          C=3          C=4       */
-  /* E=1 */ [Rating.Again, Rating.Again, Rating.Again, Rating.Again],
-  /* E=2 */ [Rating.Again, Rating.Again, Rating.Hard,  Rating.Hard],
-  /* E=3 */ [Rating.Again, Rating.Hard,  Rating.Good,  Rating.Good],
-  /* E=4 */ [Rating.Hard,  Rating.Good,  Rating.Good,  Rating.Easy],
+const CONFIDENCE_TO_GRADE: Grade[] = [
+  Rating.Again, // 1 = no recall
+  Rating.Hard,  // 2 = vague
+  Rating.Good,  // 3 = got it
+  Rating.Easy,  // 4 = knew it cold
 ];
 
-export function gradeFromRating(effort: number, confidence: number): Grade {
-  const e = clamp(effort, 1, 4) - 1;
-  const c = clamp(confidence, 1, 4) - 1;
-  return GRADE_MATRIX[e][c];
+export function gradeFromConfidence(confidence: number): Grade {
+  const idx = clamp(confidence, 1, 4) - 1;
+  return CONFIDENCE_TO_GRADE[idx];
+}
+
+/**
+ * Degrades the FSRS grade based on how many attempts it took to pass the card
+ * in the current session. Multiple attempts mean the user didn't really "know" it.
+ *
+ * 1 attempt: trust the confidence, pass through.
+ * 2-3 attempts: cap at Hard — you got there but it took work.
+ * 4+: Always Again — too many tries, needs real reps.
+ */
+export function degradeGrade(baseGrade: Grade, attempts: number): Grade {
+  if (attempts >= 4) return Rating.Again;
+  if (attempts >= 2 && baseGrade > Rating.Hard) return Rating.Hard;
+  return baseGrade;
+}
+
+/**
+ * When effort=false (user was distracted), halve the FSRS-computed interval.
+ * Only modifies due_at — stability and difficulty stay clean so the FSRS
+ * model isn't corrupted by effort signals.
+ */
+export function applyEffortModifier(state: CardState, hadEffort: boolean, now: Date): CardState {
+  if (hadEffort) return state;
+
+  const fullIntervalMs = state.due_at.getTime() - now.getTime();
+  const halvedDueAt = new Date(now.getTime() + Math.round(fullIntervalMs / 2));
+
+  return { ...state, due_at: halvedDueAt };
 }
 
 function daysBetween(a: Date, b: Date): number {
