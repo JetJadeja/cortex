@@ -7,6 +7,7 @@ interface FlipCardProps {
   front: string;
   back: string;
   cardType: CardType;
+  onLongPress?: () => void;
 }
 
 const typeLabel: Record<CardType, string> = {
@@ -18,17 +19,48 @@ const typeLabel: Record<CardType, string> = {
 
 const CARD_HEIGHT = 260;
 
-export function FlipCard({ front, back, cardType }: FlipCardProps) {
+export function FlipCard({ front, back, cardType, onLongPress }: FlipCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const longPressedRef = useRef(false);
   const flipAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleFlip = () => {
+    if (longPressedRef.current) {
+      longPressedRef.current = false;
+      return;
+    }
     const toValue = isFlipped ? 0 : 1;
     setIsFlipped(!isFlipped);
     Animated.spring(flipAnim, {
       toValue,
       tension: 50,
       friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleLongPress = () => {
+    longPressedRef.current = true;
+    onLongPress?.();
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1.03,
+      tension: 300,
+      friction: 10,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    // Clear long-press guard after onPress has a chance to read it
+    requestAnimationFrame(() => { longPressedRef.current = false; });
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      tension: 200,
+      friction: 12,
       useNativeDriver: true,
     }).start();
   };
@@ -44,37 +76,44 @@ export function FlipCard({ front, back, cardType }: FlipCardProps) {
   });
 
   return (
-    <Pressable onPress={handleFlip}>
-      <View style={styles.container}>
-        <Animated.View
-          style={[
-            styles.face,
-            {
-              transform: [{ perspective: 1000 }, { rotateY: frontRotation }],
-              backfaceVisibility: "hidden",
-            },
-          ]}
-        >
-          <Text style={styles.typeLabel}>{typeLabel[cardType]}</Text>
-          <View style={styles.frontBody}>
-            <Text style={styles.frontText}>{front}</Text>
-          </View>
-        </Animated.View>
+    <Pressable
+      onPress={handleFlip}
+      onLongPress={handleLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <View style={styles.container}>
+          <Animated.View
+            style={[
+              styles.face,
+              {
+                transform: [{ perspective: 1000 }, { rotateY: frontRotation }],
+                backfaceVisibility: "hidden",
+              },
+            ]}
+          >
+            <Text style={styles.typeLabel}>{typeLabel[cardType]}</Text>
+            <View style={styles.frontBody}>
+              <Text style={styles.frontText}>{front}</Text>
+            </View>
+          </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.face,
-            styles.faceBack,
-            {
-              transform: [{ perspective: 1000 }, { rotateY: backRotation }],
-              backfaceVisibility: "hidden",
-            },
-          ]}
-        >
-          <Text style={styles.typeLabelBack}>Answer</Text>
-          <Text style={styles.backText}>{back}</Text>
-        </Animated.View>
-      </View>
+          <Animated.View
+            style={[
+              styles.face,
+              styles.faceBack,
+              {
+                transform: [{ perspective: 1000 }, { rotateY: backRotation }],
+                backfaceVisibility: "hidden",
+              },
+            ]}
+          >
+            <Text style={styles.typeLabelBack}>Answer</Text>
+            <Text style={styles.backText}>{back}</Text>
+          </Animated.View>
+        </View>
+      </Animated.View>
     </Pressable>
   );
 }
