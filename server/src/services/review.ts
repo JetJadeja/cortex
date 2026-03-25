@@ -1,15 +1,15 @@
 import { supabase } from "../lib/supabase";
+import { Rating, scheduleCard, computeCompletionGrade, daysBetween } from "../lib/fsrs";
+import { computeDueAt, computeDueDate, applyEffortHalving } from "../lib/due-date";
 import {
-  scheduleCard,
-  gradeFromConfidence,
-  degradeGrade,
-  applyEffortModifier,
-} from "../lib/fsrs";
-import {
-  getPassedCardIdsToday,
-  getReviewedCardIdsToday,
-  getAttemptCountToday,
-} from "./review-state";
+  getCardState,
+  updateCardState,
+  isMastered,
+  reinsertFailed,
+  reinsertFamiliar,
+  type SessionCardState,
+} from "./review-queue";
+import { getLastReviewDate } from "./review-query";
 
 export interface RatingInput {
   card_id: string;
@@ -19,17 +19,161 @@ export interface RatingInput {
   user_answer?: string;
 }
 
-export interface ReviewItem {
-  type: "card";
-  card_id: string;
-  concept_id: string;
-  front: string;
-  back: string;
+export interface RatingResult {
+  mastered: boolean;
 }
 
-export async function processRating(userId: string, midnight: Date, input: RatingInput): Promise<void> {
-  const isPassed = input.confidence >= 3;
+export async function processRating(
+  userId: string,
+  midnight: Date,
+  timezone: string,
+  input: RatingInput,
+): Promise<RatingResult> {
+  const state = getCardState(userId, midnight, input.card_id);
+  const card = await fetchCardScheduling(input.card_id);
+  if (!card) throw new Error(`Card not found: ${input.card_id}`);
 
+  const now = new Date();
+
+  if (input.confidence < 3) {
+    return handleFailure(userId, midnight, timezone, input, state, card, now);
+  }
+  return handleSuccess(userId, midnight, timezone, input, state, card, now);
+}
+
+async function handleFailure(
+  userId: string,
+  midnight: Date,
+  timezone: string,
+  input: RatingInput,
+  state: SessionCardState,
+  card: CardScheduling,
+  now: Date,
+): Promise<RatingResult> {
+  // Only Again (confidence 1) counts as a failure per spec — Hard does not
+  if (input.confidence === 1) state.failures++;
+  state.passes = 0;
+
+  let scheduleApplied = false;
+
+  // Lapse call: first Again on a previously-reviewed card with real elapsed time
+  if (
+    input.confidence === 1 &&
+    card.stability > 0 &&
+    !state.lapse_called
+  ) {
+    const lastReviewedAt = await getLastReviewDate(input.card_id);
+    const elapsedDays = lastReviewedAt ? daysBetween(lastReviewedAt, now) : 0;
+
+    if (elapsedDays > 0) {
+      const result = scheduleCard(
+        { stability: card.stability, difficulty: card.difficulty },
+        Rating.Again,
+        now,
+        lastReviewedAt,
+      );
+
+      await supabase
+        .from("cards")
+        .update({
+          stability: result.stability,
+          difficulty: result.difficulty,
+        })
+        .eq("id", input.card_id);
+
+      state.lapse_called = true;
+      scheduleApplied = true;
+    }
+  }
+
+  await insertReviewHistory(userId, input, scheduleApplied);
+  updateCardState(userId, midnight, input.card_id, state);
+  reinsertFailed(userId, midnight, input.card_id, input.confidence);
+
+  return { mastered: false };
+}
+
+async function handleSuccess(
+  userId: string,
+  midnight: Date,
+  timezone: string,
+  input: RatingInput,
+  state: SessionCardState,
+  card: CardScheduling,
+  now: Date,
+): Promise<RatingResult> {
+  state.passes++;
+
+  if (!isMastered(state)) {
+    // First correct after struggle — "Familiar", stays in queue
+    await insertReviewHistory(userId, input, false);
+    updateCardState(userId, midnight, input.card_id, state);
+    reinsertFamiliar(userId, midnight, input.card_id);
+    return { mastered: false };
+  }
+
+  // Mastered — fire completion FSRS call
+  const grade = computeCompletionGrade(
+    state.failures,
+    state.lapse_called,
+    input.confidence,
+  );
+
+  const lastReviewedAt = await getLastReviewDate(input.card_id);
+  const result = scheduleCard(
+    { stability: card.stability, difficulty: card.difficulty },
+    grade,
+    now,
+    lastReviewedAt,
+  );
+
+  let intervalDays = result.interval_days;
+  if (!input.effort) {
+    intervalDays = applyEffortHalving(intervalDays);
+  }
+  intervalDays = Math.max(1, intervalDays);
+
+  const dueAt = computeDueAt(now, intervalDays);
+  const dueDate = computeDueDate(dueAt, timezone);
+
+  await supabase
+    .from("cards")
+    .update({
+      due_at: dueAt.toISOString(),
+      due_date: dueDate,
+      stability: result.stability,
+      difficulty: result.difficulty,
+    })
+    .eq("id", input.card_id);
+
+  await insertReviewHistory(userId, input, true);
+  updateCardState(userId, midnight, input.card_id, state);
+
+  return { mastered: true };
+}
+
+interface CardScheduling {
+  stability: number;
+  difficulty: number;
+}
+
+async function fetchCardScheduling(
+  cardId: string,
+): Promise<CardScheduling | null> {
+  const { data } = await supabase
+    .from("cards")
+    .select("stability, difficulty")
+    .eq("id", cardId)
+    .single();
+
+  return data;
+}
+
+async function insertReviewHistory(
+  userId: string,
+  input: RatingInput,
+  scheduleApplied: boolean,
+): Promise<void> {
   const { error } = await supabase.from("review_history").insert({
     user_id: userId,
     card_id: input.card_id,
@@ -39,185 +183,9 @@ export async function processRating(userId: string, midnight: Date, input: Ratin
     effort: input.effort,
     was_voice: !!input.user_answer,
     phase: 1,
-    schedule_applied: isPassed,
+    schedule_applied: scheduleApplied,
   });
 
-  if (error) throw new Error(`Failed to insert review_history: ${error.message}`);
-
-  if (!isPassed) return;
-
-  const { data: card } = await supabase
-    .from("cards")
-    .select("due_at, stability, difficulty")
-    .eq("id", input.card_id)
-    .single();
-
-  if (!card) return;
-
-  const attemptCount = await getAttemptCountToday(userId, input.card_id, midnight);
-  const baseGrade = gradeFromConfidence(input.confidence);
-  const grade = degradeGrade(baseGrade, attemptCount);
-
-  const lastReviewedAt = await getLastReviewDate(input.card_id);
-  const now = new Date();
-
-  let next = scheduleCard(
-    { due_at: new Date(card.due_at), stability: card.stability, difficulty: card.difficulty },
-    grade,
-    now,
-    lastReviewedAt,
-  );
-
-  next = applyEffortModifier(next, input.effort, now);
-
-  await supabase
-    .from("cards")
-    .update({
-      due_at: next.due_at.toISOString(),
-      stability: next.stability,
-      difficulty: next.difficulty,
-    })
-    .eq("id", input.card_id);
-}
-
-export async function getNextPhase1Item(userId: string, midnight: Date): Promise<ReviewItem | null> {
-  const [passedIds, reviewedIds] = await Promise.all([
-    getPassedCardIdsToday(userId, midnight),
-    getReviewedCardIdsToday(userId, midnight),
-  ]);
-
-  const now = new Date().toISOString();
-
-  const { data: dueCards } = await supabase
-    .from("cards")
-    .select("id, concept_id, front, back, due_at, stability, concepts(priority)")
-    .eq("user_id", userId)
-    .lte("due_at", now)
-    .order("due_at", { ascending: true });
-
-  if (!dueCards) return null;
-
-  const remaining = dueCards.filter((c) => !passedIds.has(c.id));
-  if (remaining.length === 0) return null;
-
-  const fresh: typeof remaining = [];
-  const recycled: typeof remaining = [];
-
-  for (const card of remaining) {
-    if (reviewedIds.has(card.id)) {
-      recycled.push(card);
-    } else {
-      fresh.push(card);
-    }
-  }
-
-  fresh.sort((a, b) => {
-    const pa = priorityTier(a);
-    const pb = priorityTier(b);
-    if (pa !== pb) return pa - pb;
-    return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
-  });
-
-  // Recycled cards go after all fresh cards — sorted by due_at as a stable tiebreaker
-  recycled.sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
-
-  const queue = [...fresh, ...recycled];
-
-  // Don't serve the card that was just reviewed unless there are ≤ 2 cards left.
-  // This prevents the Quizlet problem of seeing the same card twice in a row.
-  if (queue.length > 1) {
-    const lastReviewedCardId = await getLastReviewedCardId(userId, midnight);
-    if (lastReviewedCardId && queue[0].id === lastReviewedCardId) {
-      queue.push(queue.shift()!);
-    }
-  }
-
-  const card = queue[0];
-  if (!card) return null;
-
-  return {
-    type: "card",
-    card_id: card.id,
-    concept_id: card.concept_id,
-    front: card.front,
-    back: card.back,
-  };
-}
-
-export async function getNextPhase2Item(userId: string): Promise<ReviewItem | null> {
-  const { count } = await supabase
-    .from("cards")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-
-  const total = count ?? 0;
-  if (total === 0) return null;
-
-  const offset = Math.floor(Math.random() * total);
-
-  const { data: cards } = await supabase
-    .from("cards")
-    .select("id, concept_id, front, back")
-    .eq("user_id", userId)
-    .range(offset, offset);
-
-  const card = cards?.[0];
-  if (!card) return null;
-
-  return {
-    type: "card",
-    card_id: card.id,
-    concept_id: card.concept_id,
-    front: card.front,
-    back: card.back,
-  };
-}
-
-interface DueCard {
-  stability: number;
-  concepts: { priority: string }[] | { priority: string } | null;
-}
-
-/**
- * Priority tiers for Phase 1 ordering:
- * 0 = previously failed (reviewed at least once, stability < 2 days)
- * 1 = core-tagged concepts
- * 2 = everything else
- */
-function priorityTier(card: DueCard): number {
-  const isFailedCard = card.stability > 0 && card.stability < 2;
-  if (isFailedCard) return 0;
-
-  const concept = Array.isArray(card.concepts) ? card.concepts[0] : card.concepts;
-  if (concept?.priority === "core") return 1;
-
-  return 2;
-}
-
-async function getLastReviewedCardId(userId: string, midnight: Date): Promise<string | null> {
-  const { data } = await supabase
-    .from("review_history")
-    .select("card_id")
-    .eq("user_id", userId)
-    .gte("created_at", midnight.toISOString())
-    .not("card_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  return data?.[0]?.card_id ?? null;
-}
-
-async function getLastReviewDate(cardId: string): Promise<Date | null> {
-  const { data } = await supabase
-    .from("review_history")
-    .select("created_at")
-    .eq("card_id", cardId)
-    .order("created_at", { ascending: false })
-    .limit(2);
-
-  // The first row is the review we just inserted, so we want the second
-  if (data && data.length > 1) {
-    return new Date(data[1].created_at);
-  }
-  return null;
+  if (error)
+    throw new Error(`Failed to insert review_history: ${error.message}`);
 }
