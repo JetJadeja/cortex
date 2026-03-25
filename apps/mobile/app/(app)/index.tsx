@@ -1,10 +1,11 @@
-import React, { useContext, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { File } from "expo-file-system";
 import { AuthContext } from "../_layout";
@@ -35,7 +36,17 @@ export default function HomeScreen() {
   const { isRecording, durationMs, levels, start, stop } = useRecorder();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [dueCount, setDueCount] = useState<number | null>(null);
 
+  useFocusEffect(
+    useCallback(() => {
+      const token = auth?.session?.access_token;
+      if (!token) return;
+      api.get<{ due_count: number }>("/review/status", token)
+        .then((res) => setDueCount(res.due_count))
+        .catch(() => setDueCount(null));
+    }, [auth?.session?.access_token]),
+  );
 
   const submitRecording = async (uri: string) => {
     const token = auth?.session?.access_token;
@@ -85,6 +96,12 @@ export default function HomeScreen() {
         <Text style={styles.label}>CORTEX</Text>
         <Text style={styles.greeting}>Hey, {displayName}</Text>
         <Text style={styles.subtitle}>{subtitleText}</Text>
+        {dueCount != null && dueCount > 0 && (
+          <Text style={styles.dueCount}>{dueCount} cards to review</Text>
+        )}
+        {dueCount === 0 && (
+          <Text style={styles.allCaughtUp}>All caught up ✓</Text>
+        )}
       </View>
 
       <View style={styles.stage}>
@@ -155,6 +172,18 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  dueCount: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.primary,
+    marginTop: spacing.sm,
+  },
+  allCaughtUp: {
+    fontSize: fontSize.sm,
+    fontWeight: "500",
+    color: colors.success,
+    marginTop: spacing.sm,
   },
   stage: {
     flex: 1,
