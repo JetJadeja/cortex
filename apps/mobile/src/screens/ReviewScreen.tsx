@@ -1,81 +1,114 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, TextInput } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { colors, spacing, fontSize } from "../constants/theme";
 import { Button } from "../components/Button";
+import { ReviewCard } from "../components/ReviewCard";
+import { ConfidenceRating } from "../components/ConfidenceRating";
+import { EffortToggle } from "../components/EffortToggle";
+import { FailButton } from "../components/FailButton";
 import { useReview } from "../hooks/useReview";
 
 export const ReviewScreen: React.FC = () => {
-  const {
-    session,
-    currentIndex,
-    isLoading,
-    error,
-    loadSession,
-    submitAnswer,
-    nextItem,
-    previousItem,
-  } = useReview();
+  const review = useReview();
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [effort, setEffort] = useState(true);
 
-  const [response, setResponse] = React.useState("");
-  const currentItem = session?.items[currentIndex];
+  React.useEffect(() => {
+    setIsRevealed(false);
+    setEffort(true);
+  }, [review.item?.card_id]);
 
-  useEffect(() => {
-    setResponse("");
-  }, [currentIndex]);
+  const handleConfidence = (confidence: number) => {
+    review.submitRating(confidence, effort);
+  };
 
-  if (error) {
+  if (review.state === "loading") {
     return (
-      <View style={styles.container}>
-        <Text style={styles.error}>{error}</Text>
-        <Button title="Retry" onPress={() => loadSession("latest")} />
-      </View>
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
     );
   }
 
-  if (!session) {
+  if (review.state === "empty") {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Review</Text>
-        <Text style={styles.subtitle}>Start a review session from your recent recordings.</Text>
-        <Button
-          title={isLoading ? "Loading..." : "Start Review"}
-          onPress={() => loadSession("latest")}
-          disabled={isLoading}
-        />
-      </View>
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.heading}>No cards yet</Text>
+        <Text style={styles.sub}>Record something to get started.</Text>
+      </SafeAreaView>
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.progress}>
-        {currentIndex + 1} / {session.items.length}
-      </Text>
-      {currentItem && (
-        <>
-          <Text style={styles.question}>{currentItem.question}</Text>
-          <TextInput
-            style={styles.input}
-            value={response}
-            onChangeText={setResponse}
-            placeholder="Type your answer..."
-            placeholderTextColor={colors.textMuted}
-            multiline
-          />
-          <View style={styles.actions}>
-            <Button
-              title="Submit"
-              onPress={() => submitAnswer(currentItem.id, response)}
-              disabled={isLoading || response.length === 0}
+  if (review.state === "done") {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.heading}>You're done!</Text>
+        <Text style={styles.sub}>All caught up for today.</Text>
+        <View style={styles.browseAction}>
+          <Button title="See random cards" onPress={review.startBrowsing} variant="secondary" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (review.state === "browse") {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.browseLabel}>RANDOM BROWSE</Text>
+        </View>
+        <View style={styles.cardArea}>
+          {review.item && (
+            <ReviewCard
+              key={review.item.card_id}
+              front={review.item.front}
+              back={review.item.back}
             />
-            <View style={styles.nav}>
-              <Button title="Previous" onPress={previousItem} variant="ghost" disabled={currentIndex === 0} />
-              <Button title="Next" onPress={nextItem} variant="ghost" disabled={currentIndex === session.items.length - 1} />
-            </View>
-          </View>
-        </>
+          )}
+        </View>
+        <View style={styles.footer}>
+          <Button
+            title="Next"
+            onPress={review.nextBrowseCard}
+            disabled={review.isSubmitting}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // state === "active"
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.remaining}>{review.remaining} left</Text>
+      </View>
+      <View style={styles.cardArea}>
+        {review.item && (
+          <ReviewCard
+            key={review.item.card_id}
+            front={review.item.front}
+            back={review.item.back}
+            onRevealed={() => setIsRevealed(true)}
+          />
+        )}
+      </View>
+      {isRevealed && (
+        <View style={styles.ratingArea}>
+          <FailButton
+            onPress={() => handleConfidence(1)}
+            disabled={review.isSubmitting}
+          />
+          <EffortToggle value={effort} onChange={setEffort} />
+          <ConfidenceRating
+            onSelect={handleConfidence}
+            disabled={review.isSubmitting}
+          />
+        </View>
       )}
-    </View>
+      {review.error && <Text style={styles.error}>{review.error}</Text>}
+    </SafeAreaView>
   );
 };
 
@@ -84,54 +117,60 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     padding: spacing.lg,
+  },
+  centered: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  header: {
+    paddingBottom: spacing.md,
+  },
+  remaining: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: colors.textMuted,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  browseLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    letterSpacing: 2,
+    color: colors.textMuted,
+  },
+  cardArea: {
+    flex: 1,
     justifyContent: "center",
   },
-  title: {
+  ratingArea: {
+    gap: spacing.md,
+    paddingTop: spacing.md,
+  },
+  footer: {
+    paddingTop: spacing.md,
+  },
+  heading: {
     fontSize: fontSize.xl,
     fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.sm,
-    textAlign: "center",
   },
-  subtitle: {
+  sub: {
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: "center",
-    marginBottom: spacing.xl,
   },
-  progress: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.lg,
-  },
-  question: {
-    fontSize: fontSize.lg,
-    color: colors.text,
-    fontWeight: "600",
-    marginBottom: spacing.lg,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    color: colors.text,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: fontSize.md,
-    minHeight: 120,
-    textAlignVertical: "top",
-    marginBottom: spacing.lg,
-  },
-  actions: {
-    gap: spacing.md,
-  },
-  nav: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  browseAction: {
+    marginTop: spacing.xl,
+    width: "100%",
   },
   error: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.sm,
     color: colors.error,
     textAlign: "center",
-    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
   },
 });
