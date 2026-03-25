@@ -9,7 +9,7 @@ export interface ReviewEntry {
   card_id: string | null;
   concept_id: string;
   review_type: ReviewType;
-  effort_rating: number;
+  effort: boolean;
   confidence_rating: number;
   ai_score: number | null;
   was_voice: boolean;
