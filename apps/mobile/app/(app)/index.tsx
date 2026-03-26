@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,7 +30,22 @@ export default function HomeScreen() {
   const { isRecording, durationMs, levels, start, stop } = useRecorder();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [topic, setTopic] = useState<string | null>(null);
+  const [visibleTopic, setVisibleTopic] = useState<string | null>(null);
   const [dueCount, setDueCount] = useState<number | null>(null);
+  const topicTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (topicTimerRef.current) clearTimeout(topicTimerRef.current);
+    if (topic && !isRecording && !isSubmitting) {
+      setVisibleTopic(topic);
+      topicTimerRef.current = setTimeout(() => setVisibleTopic(null), 5000);
+    } else {
+      setVisibleTopic(null);
+    }
+    return () => {
+      if (topicTimerRef.current) clearTimeout(topicTimerRef.current);
+    };
+  }, [topic, isRecording, isSubmitting]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,22 +96,22 @@ export default function HomeScreen() {
     ? "RECORDING"
     : isSubmitting
       ? "TRANSCRIBING"
-      : topic
-        ? "CAPTURED"
-        : "NEW ENTRY";
+      : "NEW ENTRY";
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.label}>{stateLabel}</Text>
-        {topic && !isRecording && !isSubmitting ? (
-          <Text style={styles.headline} numberOfLines={3}>
-            <Text style={styles.headlineAccent}>{topic}.</Text>
-          </Text>
-        ) : (
-          <Text style={styles.headline} numberOfLines={3}>
-            {"Capture your\n"}
-            <Text style={styles.headlineAccent}>thoughts.</Text>
+        <Text style={styles.headline} numberOfLines={3}>
+          {"Capture your\n"}
+          <Text style={styles.headlineAccent}>thoughts.</Text>
+        </Text>
+      </View>
+
+      <View style={styles.topicSlot}>
+        {visibleTopic && (
+          <Text style={styles.topicText} numberOfLines={1}>
+            Building cards on {visibleTopic}.
           </Text>
         )}
       </View>
@@ -120,9 +135,6 @@ export default function HomeScreen() {
             <Text style={styles.dueCount}>
               {dueCount} {dueCount === 1 ? "card" : "cards"} to review
             </Text>
-          )}
-          {dueCount === 0 && (
-            <Text style={styles.allCaughtUp}>All caught up</Text>
           )}
         </View>
         <View style={styles.footerLine} />
@@ -163,6 +175,16 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.serifItalic,
     color: ACCENT,
   },
+  topicSlot: {
+    minHeight: 20,
+    paddingHorizontal: spacing.lg,
+    justifyContent: "center",
+  },
+  topicText: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 13,
+    color: colors.primary,
+  },
   stage: {
     flex: 1,
     justifyContent: "center",
@@ -195,11 +217,6 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.sansMedium,
     fontSize: 13,
     color: colors.primary,
-  },
-  allCaughtUp: {
-    fontFamily: fontFamily.sansMedium,
-    fontSize: 13,
-    color: colors.success,
   },
   footerLine: {
     width: 40,
