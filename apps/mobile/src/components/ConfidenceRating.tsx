@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
-import { colors, spacing } from "../constants/theme";
+import { colors, fontFamily, spacing } from "../constants/theme";
 
 interface ConfidenceRatingProps {
   onSelect: (confidence: number) => void;
@@ -10,10 +10,10 @@ interface ConfidenceRatingProps {
 }
 
 const options = [
-  { value: 1, label: "Again", color: "#FF6B6B", bg: "rgba(255, 107, 107, 0.12)" },
-  { value: 2, label: "Hard", color: "#FF9F43", bg: "rgba(255, 159, 67, 0.12)" },
-  { value: 3, label: "Good", color: "#A29BFE", bg: "rgba(162, 155, 254, 0.12)" },
-  { value: 4, label: "Easy", color: "#51CF66", bg: "rgba(81, 207, 102, 0.12)" },
+  { value: 1, label: "Again", color: "#d4564e", bg: "rgba(212, 86, 78, 0.10)" },
+  { value: 2, label: "Hard", color: "#c97a2e", bg: "rgba(201, 122, 46, 0.10)" },
+  { value: 3, label: "Good", color: "#252790", bg: "rgba(37, 39, 144, 0.10)" },
+  { value: 4, label: "Easy", color: "#6b9e78", bg: "rgba(107, 158, 120, 0.10)" },
 ];
 
 export function ConfidenceRating({
@@ -113,14 +113,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   dormant: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLight,
   },
   pressed: {
     opacity: 0.7,
   },
   label: {
+    fontFamily: fontFamily.sansBold,
     fontSize: 15,
-    fontWeight: "700",
     letterSpacing: 0.3,
   },
 });

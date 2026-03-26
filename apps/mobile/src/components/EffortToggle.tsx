@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, borderRadius } from "../constants/theme";
 
 interface EffortToggleProps {
   value: boolean;
@@ -29,7 +29,7 @@ export function EffortToggle({ value, onChange }: EffortToggleProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLight,
     borderRadius: 10,
     padding: 2,
     gap: 2,
@@ -41,11 +41,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   active: {
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: colors.surface,
   },
   text: {
+    fontFamily: fontFamily.sansMedium,
     fontSize: 13,
-    fontWeight: "500",
     color: colors.textMuted,
   },
   activeText: {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
 import { Button } from "../components/Button";
 import { ReviewCard } from "../components/ReviewCard";
 import { ConfidenceRating } from "../components/ConfidenceRating";
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 2,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.border,
     borderRadius: 1,
     overflow: "hidden",
   },
@@ -186,16 +186,16 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   remaining: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 12,
-    fontWeight: "600",
-    color: colors.textMuted,
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   browseLabel: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 10,
-    fontWeight: "600",
     letterSpacing: 2,
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   cardArea: {
     flex: 1,
@@ -210,18 +210,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stateHeading: {
+    fontFamily: fontFamily.serifBold,
     fontSize: fontSize.xl,
-    fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.sm,
   },
   doneHeading: {
+    fontFamily: fontFamily.serifBold,
     fontSize: 28,
-    fontWeight: "700",
     color: colors.text,
     marginBottom: spacing.sm,
   },
   stateSub: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: "center",
