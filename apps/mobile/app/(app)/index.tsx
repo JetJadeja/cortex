@@ -8,7 +8,7 @@ import { Button } from "../../src/components/Button";
 import { RadialRecorder } from "../../src/components/RadialRecorder";
 import { useRecorder } from "../../src/hooks/useRecorder";
 import { api } from "../../src/lib/api";
-import { colors, spacing, fontSize } from "../../src/constants/theme";
+import { colors, fontFamily, spacing, fontSize } from "../../src/constants/theme";
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -139,31 +139,32 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
-    fontWeight: "600",
     letterSpacing: 3,
     color: colors.primary,
     marginBottom: spacing.xs,
   },
   greeting: {
+    fontFamily: fontFamily.serifBold,
     fontSize: 28,
-    fontWeight: "700",
     color: colors.text,
   },
   subtitle: {
+    fontFamily: fontFamily.serifItalic,
     fontSize: fontSize.sm,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   dueCount: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: fontSize.sm,
-    fontWeight: "600",
     color: colors.primary,
     marginTop: spacing.sm,
   },
   allCaughtUp: {
+    fontFamily: fontFamily.sansMedium,
     fontSize: fontSize.sm,
-    fontWeight: "500",
     color: colors.success,
     marginTop: spacing.sm,
   },
@@ -174,21 +175,23 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   timer: {
+    fontFamily: fontFamily.mono,
     fontSize: 13,
-    fontWeight: "500",
     color: colors.textSecondary,
     letterSpacing: 2,
     fontVariant: ["tabular-nums"],
   },
   hint: {
+    fontFamily: fontFamily.sansMedium,
     fontSize: fontSize.xs,
     color: colors.textMuted,
     letterSpacing: 1,
     textTransform: "uppercase",
   },
   summary: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.md,
-    color: colors.primaryLight,
+    color: colors.primary,
     textAlign: "center",
     paddingHorizontal: spacing.lg,
   },
