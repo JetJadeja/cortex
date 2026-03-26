@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius, shadow } from "../constants/theme";
 
 const TITLE_MAX = 100;
 const TITLE_SOFT = 60;
@@ -231,7 +231,7 @@ function RenameEditorModal({
   const countColor = overLimit
     ? colors.error
     : nearLimit
-      ? "#FDCB6E"
+      ? "#a68529"
       : colors.textMuted;
 
   return (
@@ -304,7 +304,7 @@ function RenameEditorModal({
               </Text>
             )}
             {!overLimit && nearLimit && (
-              <Text style={[styles.editorHint, { color: "#FDCB6E" }]}>
+              <Text style={[styles.editorHint, { color: "#a68529" }]}>
                 Aim for under {TITLE_SOFT}
               </Text>
             )}
@@ -383,15 +383,14 @@ const styles = StyleSheet.create({
   /* Main sheet */
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    ...shadow.cardLarge,
   },
   handleRow: {
     alignItems: "center",
@@ -467,16 +466,15 @@ const styles = StyleSheet.create({
   },
   editorBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   editorCard: {
     marginTop: 60,
     marginHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     overflow: "hidden",
+    ...shadow.cardLarge,
   },
   editorHeader: {
     flexDirection: "row",
@@ -597,9 +595,9 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   confirmDeleteBtn: {
-    backgroundColor: "rgba(255, 107, 107, 0.10)",
+    backgroundColor: "rgba(212, 86, 78, 0.10)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 107, 107, 0.25)",
+    borderColor: "rgba(212, 86, 78, 0.25)",
   },
   confirmDeleteText: {
     fontSize: fontSize.sm,

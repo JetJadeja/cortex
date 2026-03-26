@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
 
 interface ToastProps {
   message: string;
@@ -85,25 +85,25 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(81, 207, 102, 0.25)",
+    borderColor: "rgba(107, 158, 120, 0.25)",
     paddingVertical: 10,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.full,
-    shadowColor: "#000",
+    shadowColor: "#1a1a4e",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 12,
   },
   check: {
+    fontFamily: fontFamily.sansBold,
     fontSize: fontSize.sm,
     color: colors.success,
-    fontWeight: "700",
   },
   text: {
+    fontFamily: fontFamily.sansMedium,
     fontSize: fontSize.sm,
     color: colors.text,
-    fontWeight: "500",
     letterSpacing: 0.3,
   },
 });

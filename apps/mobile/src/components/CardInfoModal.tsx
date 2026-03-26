@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius, shadow } from "../constants/theme";
 import { formatTimeAgo, formatDueIn } from "../lib/explore-helpers";
 import type { Card, CardType } from "../lib/cards";
 
@@ -31,10 +31,10 @@ interface CardInfoModalProps {
 }
 
 const typeConfig: Record<CardType, { label: string; color: string }> = {
-  flashcard: { label: "Flashcard", color: "#6C5CE7" },
-  explain_aloud: { label: "Explain Aloud", color: "#00B894" },
-  scenario: { label: "Scenario", color: "#FDCB6E" },
-  connection: { label: "Connection", color: "#E17055" },
+  flashcard: { label: "Flashcard", color: "#252790" },
+  explain_aloud: { label: "Explain Aloud", color: "#2d7d5f" },
+  scenario: { label: "Scenario", color: "#a68529" },
+  connection: { label: "Connection", color: "#b85c3a" },
 };
 
 export function CardInfoModal({
@@ -203,7 +203,7 @@ function FieldEditorModal({
   const countColor = overLimit
     ? colors.error
     : nearLimit
-      ? "#FDCB6E"
+      ? "#a68529"
       : colors.textMuted;
 
   return (
@@ -269,7 +269,7 @@ function FieldEditorModal({
               </Text>
             )}
             {!overLimit && nearLimit && (
-              <Text style={[styles.fieldEditorHint, { color: "#FDCB6E" }]}>
+              <Text style={[styles.fieldEditorHint, { color: "#a68529" }]}>
                 Aim for under {softLimit}
               </Text>
             )}
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
   /* Main sheet */
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
     justifyContent: "flex-end",
   },
   sheet: {
@@ -501,8 +501,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "85%",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    ...shadow.cardLarge,
   },
   handleRow: {
     alignItems: "center",
@@ -563,14 +562,14 @@ const styles = StyleSheet.create({
 
   /* Question */
   questionLabel: {
+    fontFamily: fontFamily.sansBold,
     fontSize: 10,
-    fontWeight: "700",
     letterSpacing: 2,
     color: colors.textMuted,
     marginTop: spacing.xs,
   },
   questionText: {
-    fontFamily: "Georgia",
+    fontFamily: fontFamily.serif,
     fontSize: 18,
     lineHeight: 26,
     color: colors.text,
@@ -578,13 +577,14 @@ const styles = StyleSheet.create({
 
   /* Answer */
   answerLabel: {
+    fontFamily: fontFamily.sansBold,
     fontSize: 10,
-    fontWeight: "700",
     letterSpacing: 2,
     color: colors.textMuted,
     marginTop: spacing.md,
   },
   answerText: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.sm,
     lineHeight: 22,
     color: colors.textSecondary,
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   metaCell: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceLight,
     borderRadius: borderRadius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -614,15 +614,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   metaCellLabel: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 10,
-    fontWeight: "600",
     letterSpacing: 1,
     color: colors.textMuted,
     textTransform: "uppercase",
   },
   metaCellValue: {
+    fontFamily: fontFamily.sansBold,
     fontSize: fontSize.sm,
-    fontWeight: "700",
     color: colors.text,
   },
 
@@ -645,14 +645,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
   },
   editBtnText: {
+    fontFamily: fontFamily.sansBold,
     fontSize: fontSize.sm,
-    fontWeight: "700",
     color: colors.text,
   },
   deleteBtn: {
-    backgroundColor: "rgba(255, 107, 107, 0.10)",
+    backgroundColor: "rgba(212, 86, 78, 0.10)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255, 107, 107, 0.25)",
+    borderColor: "rgba(212, 86, 78, 0.25)",
   },
   deleteBtnText: {
     fontSize: fontSize.sm,
@@ -768,16 +768,15 @@ const styles = StyleSheet.create({
   },
   fieldEditorBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   fieldEditorCard: {
     marginTop: 60,
     marginHorizontal: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     overflow: "hidden",
+    ...shadow.cardLarge,
   },
   fieldEditorHeader: {
     flexDirection: "row",
@@ -830,7 +829,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfaceLight,
   },
   fieldEditorCountRow: {
     flexDirection: "row",
