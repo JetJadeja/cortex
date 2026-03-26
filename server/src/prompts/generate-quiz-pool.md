@@ -16,8 +16,6 @@ Every question must be grounded in the user's actual knowledge base (the cards b
 
 **Apply** — Put the user in a concrete scenario where they need to use their knowledge to reason through a problem. The scenario should feel realistic, not contrived. Example: "If a patient's immune cells aren't responding to a vaccine, what's the first mechanism you'd investigate?"
 
-**Synthesize** — Identify a deeper pattern across three or more concepts. Only generate these when the pattern is genuine and insightful. Example: "What do enzyme specificity, compiler type-checking, and airport security all have in common as filtering mechanisms?"
-
 ## Rules
 
 - Generate as many high-quality questions as the material supports. Every question must be intellectually substantive.
@@ -27,7 +25,6 @@ Every question must be grounded in the user's actual knowledge base (the cards b
 - **Questions must be under 140 characters.** Concise and direct — read on a phone screen.
 - Expected answers should be 2-4 sentences, under 300 characters.
 - Distinguish and Connect questions need two concepts that are meaningfully related. Do not force connections where none exist.
-- Synthesize questions need three or more concepts with a genuine shared pattern. Do not generate these unless the insight is real.
 - Draw connections between due cards AND context cards where meaningful relationships exist.
 
 ## Context Cards (not due today — provided for generating cross-concept questions)
@@ -38,4 +35,4 @@ Every question must be grounded in the user's actual knowledge base (the cards b
 
 {{dueCards}}
 
-Generate quiz questions based on this material. Return a JSON object with a `questions` array where each element has: `question` (the quiz question text), `expected_answer` (what a strong answer would cover — 2-4 sentences), and `quiz_type` (one of: explain, distinguish, connect, apply, synthesize).
+Generate quiz questions based on this material. Return a JSON object with a `questions` array where each element has: `question` (the quiz question text), `expected_answer` (what a strong answer would cover — 2-4 sentences), and `quiz_type` (one of: explain, distinguish, connect, apply).

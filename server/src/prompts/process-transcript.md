@@ -21,6 +21,7 @@ When the user explains a general category and then focuses on a specific type wi
 **Explanation**: A corrected, sharpened version of what the user said about this concept. This is the reference text the user will see when they browse their knowledge library, so it needs to be right.
 
 Your job:
+
 - **Fix errors.** If the user said something factually wrong, replace it with the correct information. Don't note the correction; just state the right thing.
 - **Fill gaps.** If the user mentioned a concept without fully explaining it (they named a term but didn't define it, or described a process but skipped a step), fill in what's missing with accurate information.
 - **Tighten.** Cut filler, hedging, repetition, and verbal tics. Every sentence should carry meaning. "So basically it's kind of like when companies, you know, borrow from funds instead of banks" becomes "Non-bank lending where borrowers obtain financing directly from private investment funds rather than traditional bank loans."
@@ -61,20 +62,25 @@ A concept can have up to six dimensions. Generate a card for each dimension the 
 **The rule: generate cards for what the user actually said.** If the user didn't explain a mechanism, there is no mechanism card. If the user listed multiple causes without unpacking them, that's one card, not one per cause.
 
 Example (explanation): the user explained how margin calls work in detail:
+
 - "What is a margin call?" -> identity
 - "What triggers a margin call?" -> mechanism
 - "Why can margin calls cause cascading sell-offs?" -> challenge (they discussed consequences)
 
 Example (observation): the user just mentioned that CRISPR edits DNA:
+
 - "What does CRISPR do?" -> identity (one card; they didn't go deeper)
 
 Example (observation): the user mentioned that global shipping costs spiked because of Houthi attacks in the Red Sea and drought at the Panama Canal:
+
 - "What drove the spike in global shipping costs?" -> identity (one synthesis card combining both drivers; they didn't unpack either cause)
 
 Example (explanation): the user contrasted two approaches in detail:
+
 - "How does UDP differ from TCP in handling packet loss?" -> distinction
 
 Example (explanation): the user explained convertible notes and discussed why they defer valuation:
+
 - "What is a convertible note?" -> identity
 - "Why do convertible notes defer valuation?" -> purpose
 - "When would a startup choose a convertible note over a priced round?" -> application (they discussed the conditions)
@@ -86,11 +92,13 @@ Always a question. Always exactly one sentence. Aim for under 100 characters; ne
 The reader will see this card days from now, out of context, surrounded by cards on completely different topics. They need to instantly understand what they're being asked. Include the subject explicitly. Never use pronouns without antecedents, never reference "the above" or "this concept."
 
 Bad fronts and why:
+
 - "What do they use?" (who is "they"? use for what?)
 - "Explain the tradeoffs." (of what?)
 - "What is it called when..." (vague, tests terminology not understanding)
 
 Good fronts:
+
 - "How does TCP detect and respond to network congestion?"
 - "Why do startups raise convertible notes instead of priced rounds?"
 - "What makes demand elasticity different from supply elasticity?"
@@ -100,6 +108,7 @@ Good fronts:
 A direct, precise answer. 1-3 sentences. Aim for under 200 characters; never exceed 300. Every word load-bearing.
 
 Rules:
+
 - Answer the question immediately. Don't build up to it. The first sentence should contain the core answer.
 - Use specifics over vague qualifiers. "Terminals generate ~80% of revenue" not "terminals generate most of the revenue."
 - State what things ARE, not what they "can be" or "might involve." Be assertive.
@@ -109,10 +118,12 @@ Rules:
 - If you can't fit a complete answer in 300 characters, the front question is too broad. Split it into multiple cards.
 
 Bad backs and why:
+
 - "There are several factors including speed, simplicity, and valuation deferral among other considerations." (weasel words, says nothing specific)
 - "It depends on the situation." (not an answer)
 
 Good backs:
+
 - "Convertible notes close faster, require minimal legal work, and let both sides defer valuation to a future priced round when there's more data to price against."
 - "The sender halves its congestion window on packet loss, then increases it by one segment per round-trip as acknowledgments arrive, probing for available bandwidth."
 

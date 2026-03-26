@@ -6,17 +6,17 @@ Select approximately **{{targetCount}}** questions. This is guidance — if only
 
 ## Type Distribution (approximate)
 
-- Explain: ~40%
+- Explain: ~25%
 - Distinguish: ~25%
-- Connect: ~20%
-- Apply: ~10%
-- Synthesize: ~5%
+- Connect: ~25%
+- Apply: ~25%
 
 Shift the distribution based on what the material supports. Quality always wins over percentages.
 
 ## Quality Standards — Be Ruthless
 
 Kill any question that:
+
 - Could be answered by reciting a single flashcard verbatim
 - Asks "what is X" or "define X" (that's what flashcards are for)
 - Is trivially obvious to anyone who's read the cards
@@ -25,6 +25,7 @@ Kill any question that:
 - Is vague, wishy-washy, or has no clear strong answer
 
 Keep questions that:
+
 - Require the user to reason, compare, or construct an argument
 - Would make a smart person pause and think before answering
 - Test understanding at a level deeper than fact recall
@@ -44,4 +45,4 @@ Keep questions that:
 
 {{candidatePool}}
 
-Return a JSON object with a `questions` array where each element has: `question` (the final polished question text), `expected_answer` (what a strong answer covers — 2-4 sentences), and `quiz_type` (one of: explain, distinguish, connect, apply, synthesize).
+Return a JSON object with a `questions` array where each element has: `question` (the final polished question text), `expected_answer` (what a strong answer covers — 2-4 sentences), and `quiz_type` (one of: explain, distinguish, connect, apply).
