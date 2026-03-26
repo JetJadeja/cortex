@@ -1,20 +1,33 @@
+import { Platform } from "react-native";
+
 export const colors = {
-  background: "#0A0A0A",
-  surface: "#1A1A1A",
-  surfaceLight: "#2A2A2A",
-  primary: "#6C5CE7",
-  primaryLight: "#A29BFE",
-  text: "#FAFAFA",
-  textSecondary: "#A0A0A0",
-  textMuted: "#666666",
-  border: "#333333",
-  error: "#FF6B6B",
-  success: "#51CF66",
+  background: "#fbf9f5",
+  surface: "#ffffff",
+  surfaceLight: "#f5f3ef",
+  primary: "#252790",
+  primaryLight: "#3d3fba",
+  text: "#1a1a2e",
+  textSecondary: "#8a8a8a",
+  textMuted: "#b5b0a8",
+  border: "#d4d0c8",
+  error: "#d4564e",
+  success: "#6b9e78",
   recording: "#FF4444",
-  radialTickIdle: "#8E9299",
-  radialTickActive: "rgba(255,255,255,0.85)",
-  radialOrbit: "#8E9299",
-  radialPulse: "rgba(255,255,255,0.3)",
+  radialTickIdle: "#b5b0a8",
+  radialTickActive: "#252790",
+  radialOrbit: "#d4d0c8",
+  radialPulse: "rgba(37,39,144,0.2)",
+} as const;
+
+export const fontFamily = {
+  serif: "Newsreader_400Regular",
+  serifItalic: "Newsreader_400Regular_Italic",
+  serifBold: "Newsreader_700Bold",
+  sans: "Manrope_400Regular",
+  sansMedium: "Manrope_500Medium",
+  sansSemiBold: "Manrope_600SemiBold",
+  sansBold: "Manrope_700Bold",
+  mono: Platform.select({ ios: "Menlo", default: "monospace" }),
 } as const;
 
 export const spacing = {
@@ -41,4 +54,21 @@ export const borderRadius = {
   md: 12,
   lg: 16,
   full: 9999,
+} as const;
+
+export const shadow = {
+  card: {
+    shadowColor: "#1a1a4e",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  cardLarge: {
+    shadowColor: "#1a1a4e",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
 } as const;
