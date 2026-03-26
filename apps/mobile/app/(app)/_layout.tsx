@@ -1,7 +1,9 @@
 import React, { useContext, useState, useEffect, useCallback, useRef } from "react";
 import { AppState } from "react-native";
 import { Tabs } from "expo-router";
-import { colors, fontSize } from "../../src/constants/theme";
+import { StatusBar } from "expo-status-bar";
+import { Feather } from "@expo/vector-icons";
+import { colors, fontFamily, fontSize } from "../../src/constants/theme";
 import { api } from "../../src/lib/api";
 import { onDueCount } from "../../src/lib/due-count";
 import { AuthContext } from "../_layout";
@@ -22,14 +24,12 @@ export default function AppLayout() {
       .catch(() => {});
   }, [auth?.session?.access_token]);
 
-  // Instant updates from review actions
   useEffect(() => {
     return onDueCount((count) => {
       setDueCount(count > 0 ? count : undefined);
     });
   }, []);
 
-  // Poll for external changes (new cards processed) + app foreground
   useEffect(() => {
     fetchStatus();
     intervalRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS);
@@ -45,43 +45,60 @@ export default function AppLayout() {
   }, [fetchStatus]);
 
   return (
-    <Tabs
-      initialRouteName="index"
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          borderTopWidth: 0.5,
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: {
-          fontSize: fontSize.xs,
-          fontWeight: "600",
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="explore"
-        options={{ title: "Explore" }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{ title: "Record" }}
-      />
-      <Tabs.Screen
-        name="review"
-        options={{
-          title: "Review",
-          tabBarBadge: dueCount,
-          tabBarBadgeStyle: {
-            backgroundColor: colors.primary,
+    <>
+      <StatusBar style="dark" />
+      <Tabs
+        initialRouteName="index"
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            borderTopWidth: 0.5,
+          },
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.textMuted,
+          tabBarLabelStyle: {
+            fontFamily: fontFamily.sansMedium,
             fontSize: 10,
-            fontWeight: "700",
           },
         }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="explore"
+          options={{
+            title: "Explore",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="compass" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Record",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="mic" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="review"
+          options={{
+            title: "Review",
+            tabBarIcon: ({ color, size }) => (
+              <Feather name="layers" size={size} color={color} />
+            ),
+            tabBarBadge: dueCount,
+            tabBarBadgeStyle: {
+              backgroundColor: colors.primary,
+              color: "#ffffff",
+              fontSize: 10,
+              fontFamily: fontFamily.sansBold,
+            },
+          }}
+        />
+      </Tabs>
+    </>
   );
 }
