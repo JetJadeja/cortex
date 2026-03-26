@@ -1,11 +1,8 @@
 import { supabase } from "../lib/supabase";
 import { todayDateString } from "../lib/timezone";
-import {
-  getMasteredCardIdsToday,
-  getReviewedCardIdsToday,
-} from "./review-state";
+import { generateEmbedding, buildEmbedText } from "./embedding";
 
-export interface ReviewItem {
+export interface CardItem {
   type: "card";
   card_id: string;
   concept_id: string;
@@ -13,17 +10,42 @@ export interface ReviewItem {
   back: string;
 }
 
-/** Build the initial shuffled queue of card IDs for a review session. */
+export interface QuizItem {
+  type: "quiz";
+  quiz_id: string;
+  concept_id: string;
+  question: string;
+  quiz_type: string;
+}
+
+export type ReviewItem = CardItem | QuizItem;
+
+export interface DueCardWithContent {
+  id: string;
+  concept_id: string;
+  concept_title: string;
+  front: string;
+  back: string;
+}
+
+export interface ContextCard {
+  id: string;
+  front: string;
+  back: string;
+  concept_title: string;
+  similarity: number;
+}
+
+/**
+ * Build the initial shuffled queue of card IDs for a review session.
+ * Simply fetches cards where due_date <= today, sorted by priority tiers.
+ * No mastered/reviewed filters — FSRS already pushes due_date forward on mastery.
+ */
 export async function buildInitialQueue(
   userId: string,
-  midnight: Date,
+  _midnight: Date,
   timezone: string,
 ): Promise<string[]> {
-  const [masteredIds, reviewedIds] = await Promise.all([
-    getMasteredCardIdsToday(userId, timezone),
-    getReviewedCardIdsToday(userId, midnight),
-  ]);
-
   const today = todayDateString(timezone);
 
   const { data: dueCards } = await supabase
@@ -33,38 +55,107 @@ export async function buildInitialQueue(
     .lte("due_date", today)
     .order("due_at", { ascending: true });
 
-  if (!dueCards) return [];
+  if (!dueCards || dueCards.length === 0) return [];
 
-  const remaining = dueCards.filter((c) => !masteredIds.has(c.id));
-  if (remaining.length === 0) return [];
-
-  const fresh: typeof remaining = [];
-  const recycled: typeof remaining = [];
-
-  for (const card of remaining) {
-    if (reviewedIds.has(card.id)) {
-      recycled.push(card);
-    } else {
-      fresh.push(card);
-    }
-  }
-
-  const shuffledFresh: typeof remaining = [];
+  const sorted: typeof dueCards = [];
   for (const tier of [0, 1, 2]) {
-    shuffledFresh.push(
-      ...shuffle(fresh.filter((c) => priorityTier(c) === tier)),
+    sorted.push(
+      ...shuffle(dueCards.filter((c) => priorityTier(c) === tier)),
     );
   }
 
-  shuffle(recycled);
+  return sorted.map((c) => c.id);
+}
 
-  return [...shuffledFresh, ...recycled].map((c) => c.id);
+/** Fetch all due cards with full content for quiz generation. */
+export async function fetchDueCardsWithContent(
+  userId: string,
+  timezone: string,
+): Promise<DueCardWithContent[]> {
+  const today = todayDateString(timezone);
+
+  const { data } = await supabase
+    .from("cards")
+    .select("id, concept_id, front, back, concepts(title)")
+    .eq("user_id", userId)
+    .lte("due_date", today);
+
+  if (!data) return [];
+
+  return data.map((card) => {
+    const concept = Array.isArray(card.concepts)
+      ? card.concepts[0]
+      : card.concepts;
+    return {
+      id: card.id,
+      concept_id: card.concept_id,
+      concept_title: concept?.title ?? "Unknown",
+      front: card.front,
+      back: card.back,
+    };
+  });
+}
+
+/**
+ * Find similar cards from the library for quiz context.
+ * Runs one embedding search per unique concept in the due set,
+ * then deduplicates and excludes any cards already in the due set.
+ */
+export async function fetchSimilarContextCards(
+  userId: string,
+  dueCards: DueCardWithContent[],
+): Promise<ContextCard[]> {
+  const dueCardIds = new Set(dueCards.map((c) => c.id));
+
+  const conceptMap = new Map<string, DueCardWithContent>();
+  for (const card of dueCards) {
+    if (!conceptMap.has(card.concept_id)) {
+      conceptMap.set(card.concept_id, card);
+    }
+  }
+
+  const seen = new Set<string>();
+  const contextCards: ContextCard[] = [];
+
+  const searches = Array.from(conceptMap.values()).map(async (representative) => {
+    const embedText = buildEmbedText(
+      representative.front,
+      representative.back,
+      representative.concept_title,
+    );
+    const embedding = await generateEmbedding(embedText);
+
+    const { data } = await supabase.rpc("match_cards", {
+      query_embedding: embedding,
+      match_user_id: userId,
+      match_count: 10,
+    });
+
+    if (!data) return;
+
+    for (const match of data) {
+      if (dueCardIds.has(match.id) || seen.has(match.id)) continue;
+      if (match.similarity < 0.3) continue;
+      seen.add(match.id);
+      contextCards.push({
+        id: match.id,
+        front: match.front,
+        back: match.back,
+        concept_title: match.concept_title,
+        similarity: match.similarity,
+      });
+    }
+  });
+
+  await Promise.all(searches);
+
+  return contextCards.sort((a, b) => b.similarity - a.similarity);
 }
 
 /** Fetch a single card's data by ID for serving to the client. */
 export async function fetchCardById(
   cardId: string,
-): Promise<ReviewItem | null> {
+): Promise<CardItem | null> {
   const { data } = await supabase
     .from("cards")
     .select("id, concept_id, front, back")
@@ -84,7 +175,7 @@ export async function fetchCardById(
 
 export async function getNextPhase2Item(
   userId: string,
-): Promise<ReviewItem | null> {
+): Promise<CardItem | null> {
   const { count } = await supabase
     .from("cards")
     .select("id", { count: "exact", head: true })
