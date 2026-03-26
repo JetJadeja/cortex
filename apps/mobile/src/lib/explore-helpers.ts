@@ -91,9 +91,12 @@ export function formatTimeAgo(dateStr: string): string {
 }
 
 export function formatDueIn(dueAt: string): string {
-  const ms = new Date(dueAt).getTime() - Date.now();
-  if (!Number.isFinite(ms)) return "unknown";
-  const days = Math.round(ms / 86_400_000);
+  const parts = dueAt.slice(0, 10).split("-").map(Number);
+  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return "unknown";
+  const dueLocal = new Date(parts[0], parts[1] - 1, parts[2]);
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((dueLocal.getTime() - todayLocal.getTime()) / 86_400_000);
   if (days < -1) return `overdue by ${Math.abs(days)}d`;
   if (days < 0) return "overdue";
   if (days === 0) return "today";
