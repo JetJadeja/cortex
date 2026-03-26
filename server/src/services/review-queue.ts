@@ -4,11 +4,23 @@ export interface SessionCardState {
   lapse_called: boolean;
 }
 
+export interface QuizData {
+  quiz_id: string;
+  concept_id: string;
+  question: string;
+  expected_answer: string;
+  quiz_type: string;
+}
+
 interface QueueEntry {
   midnight: string;
-  cardIds: string[];
+  itemIds: string[];
   cardState: Map<string, SessionCardState>;
+  quizzes: Map<string, QuizData>;
+  quizzesInFlight: boolean;
 }
+
+const QUIZ_PREFIX = "quiz:";
 
 const queues = new Map<string, QueueEntry>();
 
@@ -22,8 +34,12 @@ function getEntry(userId: string, midnight: Date): QueueEntry | undefined {
   return entry;
 }
 
+export function isQuizId(id: string): boolean {
+  return id.startsWith(QUIZ_PREFIX);
+}
+
 export function getQueue(userId: string, midnight: Date): string[] | undefined {
-  return getEntry(userId, midnight)?.cardIds;
+  return getEntry(userId, midnight)?.itemIds;
 }
 
 export function setQueue(
@@ -33,8 +49,10 @@ export function setQueue(
 ): void {
   queues.set(userId, {
     midnight: midnight.toISOString(),
-    cardIds,
+    itemIds: cardIds,
     cardState: new Map(),
+    quizzes: new Map(),
+    quizzesInFlight: false,
   });
 }
 
@@ -112,6 +130,52 @@ export function queueLength(userId: string, midnight: Date): number {
 
 export function invalidate(userId: string): void {
   queues.delete(userId);
+}
+
+export function getQuizData(
+  userId: string,
+  midnight: Date,
+  quizId: string,
+): QuizData | undefined {
+  const entry = getEntry(userId, midnight);
+  return entry?.quizzes.get(quizId);
+}
+
+export function isQuizzesInFlight(userId: string, midnight: Date): boolean {
+  return getEntry(userId, midnight)?.quizzesInFlight ?? false;
+}
+
+export function setQuizzesInFlight(userId: string, midnight: Date, value: boolean): void {
+  const entry = getEntry(userId, midnight);
+  if (entry) entry.quizzesInFlight = value;
+}
+
+/**
+ * Insert generated quizzes into the queue at roughly every 4th position.
+ * Each quiz gets a prefixed ID stored in itemIds and its data in the quizzes map.
+ */
+export function interleaveQuizzes(
+  userId: string,
+  midnight: Date,
+  quizzes: QuizData[],
+): void {
+  const entry = getEntry(userId, midnight);
+  if (!entry || quizzes.length === 0) return;
+
+  for (const quiz of quizzes) {
+    entry.quizzes.set(quiz.quiz_id, quiz);
+  }
+
+  const quizIds = quizzes.map((q) => `${QUIZ_PREFIX}${q.quiz_id}`);
+  const spacing = 4;
+
+  for (let i = 0; i < quizIds.length; i++) {
+    const targetPos = (i + 1) * spacing - 1;
+    const insertPos = Math.min(targetPos, entry.itemIds.length);
+    entry.itemIds.splice(insertPos, 0, quizIds[i]);
+  }
+
+  entry.quizzesInFlight = false;
 }
 
 function insertAtRandomPosition(
