@@ -10,6 +10,7 @@ import {
   type SessionCardState,
 } from "./review-queue";
 import { getLastReviewDate } from "./review-query";
+import { evaluateQuizAnswer } from "./claude";
 
 export interface RatingInput {
   card_id: string;
@@ -150,6 +151,46 @@ async function handleSuccess(
   updateCardState(userId, midnight, input.card_id, state);
 
   return { mastered: true };
+}
+
+export interface QuizRatingInput {
+  quiz_id: string;
+  concept_id: string;
+  question: string;
+  expected_answer: string;
+  quiz_type: string;
+  user_answer: string;
+  was_voice: boolean;
+}
+
+export async function processQuizRating(
+  userId: string,
+  input: QuizRatingInput,
+): Promise<{ score: number; feedback: string }> {
+  const evaluation = await evaluateQuizAnswer(
+    input.question,
+    input.expected_answer,
+    input.user_answer,
+    input.quiz_type,
+  );
+
+  const { error } = await supabase.from("review_history").insert({
+    user_id: userId,
+    card_id: null,
+    concept_id: input.concept_id,
+    review_type: "quiz",
+    confidence_rating: evaluation.confidence_rating,
+    effort: true,
+    was_voice: input.was_voice,
+    phase: 1,
+    schedule_applied: false,
+    ai_score: evaluation.score,
+  });
+
+  if (error)
+    throw new Error(`Failed to insert quiz review_history: ${error.message}`);
+
+  return { score: evaluation.score, feedback: evaluation.feedback };
 }
 
 interface CardScheduling {
