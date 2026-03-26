@@ -13,10 +13,10 @@ export const colors = {
   error: "#d4564e",
   success: "#6b9e78",
   recording: "#FF4444",
-  radialTickIdle: "#b5b0a8",
-  radialTickActive: "#000000",
+  radialTickIdle: "#8a8a8a",
+  radialTickActive: "#4361ee",
   radialOrbit: "#d4d0c8",
-  radialPulse: "rgba(37,39,144,0.2)",
+  radialPulse: "rgba(67,97,238,0.25)",
 } as const;
 
 export const fontFamily = {
