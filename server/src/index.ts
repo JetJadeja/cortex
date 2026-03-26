@@ -4,6 +4,7 @@ import { processRecordingRouter } from "./routes/processRecording";
 import { evaluateReviewRouter } from "./routes/evaluateReview";
 import { reviewRouter } from "./routes/review";
 import { chatRouter } from "./routes/chat";
+import { searchRouter } from "./routes/search";
 import { getPendingSessions } from "./services/recording";
 import { enqueueProcessing } from "./lib/processing-queue";
 
@@ -21,6 +22,7 @@ app.use("/process-recording", processRecordingRouter);
 app.use("/evaluate-review", evaluateReviewRouter);
 app.use("/review", reviewRouter);
 app.use("/chat", chatRouter);
+app.use("/search", searchRouter);
 
 async function start() {
   try {
