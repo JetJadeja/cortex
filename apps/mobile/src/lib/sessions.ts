@@ -65,3 +65,29 @@ export async function updateSessionStatus(
   if (error) throw error;
   return data;
 }
+
+export async function updateSession(
+  sessionId: string,
+  updates: Partial<Pick<Session, "summary">>,
+): Promise<Session> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .update(updates)
+    .eq("id", sessionId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const { error } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("id", sessionId)
+    .select("id")
+    .single();
+
+  if (error) throw error;
+}
