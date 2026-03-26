@@ -27,7 +27,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Newsreader_400Regular,
     Newsreader_400Regular_Italic,
     Newsreader_700Bold,
@@ -37,7 +37,8 @@ export default function RootLayout() {
     Manrope_700Bold,
   });
 
-  const isReady = fontsLoaded && !auth.isLoading;
+  const fontsReady = fontsLoaded || fontError !== null;
+  const isReady = fontsReady && !auth.isLoading;
 
   const onLayoutReady = useCallback(async () => {
     if (isReady) {
