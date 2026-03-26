@@ -10,7 +10,7 @@ import {
 import { AuthContext } from "./_layout";
 import { Button } from "../src/components/Button";
 import { createProfile, updateProfile } from "../src/lib/profiles";
-import { colors, spacing, fontSize, borderRadius } from "../src/constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../src/constants/theme";
 
 export default function OnboardingScreen() {
   const auth = useContext(AuthContext);
@@ -64,7 +64,7 @@ export default function OnboardingScreen() {
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Welcome to Cortex</Text>
-        <Text style={styles.subtitle}>Tell us a bit about yourself</Text>
+        <Text style={styles.subtitle}>What should we call you?</Text>
 
         <TextInput
           style={styles.input}
@@ -74,6 +74,7 @@ export default function OnboardingScreen() {
           onChangeText={setDisplayName}
           autoCapitalize="words"
           autoComplete="name"
+          keyboardAppearance="light"
           autoFocus
         />
 
@@ -84,6 +85,7 @@ export default function OnboardingScreen() {
           value={age}
           onChangeText={setAge}
           keyboardType="number-pad"
+          keyboardAppearance="light"
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -106,19 +108,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
+    fontFamily: fontFamily.serifBold,
     fontSize: fontSize.title,
-    fontWeight: "700",
     color: colors.text,
     textAlign: "center",
     marginBottom: spacing.xs,
   },
   subtitle: {
+    fontFamily: fontFamily.serifItalic,
     fontSize: fontSize.lg,
     color: colors.textSecondary,
     textAlign: "center",
     marginBottom: spacing.lg,
   },
   input: {
+    fontFamily: fontFamily.sans,
     backgroundColor: colors.surface,
     color: colors.text,
     fontSize: fontSize.md,
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   error: {
+    fontFamily: fontFamily.sans,
     color: colors.error,
     fontSize: fontSize.sm,
     textAlign: "center",

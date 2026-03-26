@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
-import { colors, spacing, fontSize, borderRadius } from "../../src/constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../../src/constants/theme";
 
 function mapAuthError(message: string): string {
   if (message.includes("Invalid login credentials")) {
@@ -67,6 +67,7 @@ export default function LoginScreen() {
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
+          keyboardAppearance="light"
           autoComplete="email"
           spellCheck={false}
           autoCorrect={false}
@@ -79,6 +80,7 @@ export default function LoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          keyboardAppearance="light"
           autoComplete="password"
         />
 
@@ -112,19 +114,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
+    fontFamily: fontFamily.serifBold,
     fontSize: fontSize.title,
-    fontWeight: "700",
     color: colors.text,
     textAlign: "center",
     marginBottom: spacing.xs,
   },
   subtitle: {
+    fontFamily: fontFamily.serifItalic,
     fontSize: fontSize.md,
     color: colors.textSecondary,
     textAlign: "center",
     marginBottom: spacing.lg,
   },
   input: {
+    fontFamily: fontFamily.sans,
     backgroundColor: colors.surface,
     color: colors.text,
     fontSize: fontSize.md,
@@ -135,6 +139,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   error: {
+    fontFamily: fontFamily.sans,
     color: colors.error,
     fontSize: fontSize.sm,
     textAlign: "center",
@@ -144,11 +149,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   linkText: {
+    fontFamily: fontFamily.sans,
     color: colors.textSecondary,
     fontSize: fontSize.sm,
   },
   linkHighlight: {
-    color: colors.primaryLight,
-    fontWeight: "600",
+    color: colors.primary,
+    fontFamily: fontFamily.sansSemiBold,
   },
 });
