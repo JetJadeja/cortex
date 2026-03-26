@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { AuthContext } from "../../app/_layout";
@@ -19,7 +20,7 @@ import { getHistoryForCard } from "../lib/review-history";
 import { getSessions, updateSession, deleteSession } from "../lib/sessions";
 import { buildSections, type ExploreSection } from "../lib/explore-helpers";
 import { searchCards, type SearchResult } from "../lib/search";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const MIN_SEARCH_LENGTH = 2;
@@ -264,7 +265,11 @@ export const ExploreScreen: React.FC = () => {
             <View style={styles.countPill}>
               <Text style={styles.countText}>{section.cardCount}</Text>
             </View>
-            <Text style={styles.chevron}>{isCollapsed ? "\u25B8" : "\u25BE"}</Text>
+            <Feather
+              name={isCollapsed ? "chevron-right" : "chevron-down"}
+              size={16}
+              color={colors.textMuted}
+            />
           </View>
         </TouchableOpacity>
       );
@@ -372,8 +377,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   label: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
-    fontWeight: "600",
     letterSpacing: 3,
     color: colors.primary,
     marginBottom: spacing.xs,
@@ -384,8 +389,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
+    fontFamily: fontFamily.serifBold,
     fontSize: 28,
-    fontWeight: "700",
     color: colors.text,
   },
   headerPill: {
@@ -395,8 +400,8 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   headerPillText: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: fontSize.xs,
-    fontWeight: "600",
     color: colors.textSecondary,
   },
   searchWrap: {
@@ -408,6 +413,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   searchInput: {
+    fontFamily: fontFamily.sans,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
     borderWidth: StyleSheet.hairlineWidth,
@@ -440,12 +446,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sectionTitle: {
+    fontFamily: fontFamily.serif,
     fontSize: fontSize.md,
-    fontWeight: "600",
     color: colors.text,
     textTransform: "capitalize",
   },
   sectionTimestamp: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.xs,
     color: colors.textMuted,
   },
@@ -461,13 +468,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   countText: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
-    fontWeight: "600",
     color: colors.textSecondary,
-  },
-  chevron: {
-    fontSize: fontSize.md,
-    color: colors.textMuted,
   },
   cardWrap: {
     marginBottom: spacing.md,
@@ -479,11 +482,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyTitle: {
+    fontFamily: fontFamily.serifBold,
     fontSize: fontSize.lg,
-    fontWeight: "600",
     color: colors.textSecondary,
   },
   emptyHint: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.sm,
     color: colors.textMuted,
     textAlign: "center",
