@@ -155,8 +155,8 @@ export const RadialRecorder: React.FC<RadialRecorderProps> = React.memo(
     };
 
     const tickStroke = isRecording
-      ? "rgba(255,255,255,0.85)"
-      : "#8E9299";
+      ? colors.radialTickActive
+      : colors.radialTickIdle;
 
     return (
       <View style={styles.container}>
@@ -172,7 +172,7 @@ export const RadialRecorder: React.FC<RadialRecorderProps> = React.memo(
             cx={CX}
             cy={CY}
             r={ORBIT_RADIUS}
-            stroke="#8E9299"
+            stroke={colors.radialOrbit}
             strokeWidth={1}
             strokeDasharray="4,4"
             fill="none"
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: colors.radialPulse,
   },
   button: {
     width: BUTTON_SIZE,
@@ -255,9 +255,9 @@ const styles = StyleSheet.create({
   iconRecording: {
     width: ICON_REC,
     height: ICON_REC,
-    backgroundColor: "#FF4444",
+    backgroundColor: colors.recording,
     borderRadius: 2,
-    shadowColor: "#FF4444",
+    shadowColor: colors.recording,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,

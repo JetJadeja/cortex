@@ -10,6 +10,11 @@ export const colors = {
   border: "#333333",
   error: "#FF6B6B",
   success: "#51CF66",
+  recording: "#FF4444",
+  radialTickIdle: "#8E9299",
+  radialTickActive: "rgba(255,255,255,0.85)",
+  radialOrbit: "#8E9299",
+  radialPulse: "rgba(255,255,255,0.3)",
 } as const;
 
 export const spacing = {
