@@ -14,7 +14,7 @@ export const colors = {
   success: "#6b9e78",
   recording: "#FF4444",
   radialTickIdle: "#b5b0a8",
-  radialTickActive: "#252790",
+  radialTickActive: "#000000",
   radialOrbit: "#d4d0c8",
   radialPulse: "rgba(37,39,144,0.2)",
 } as const;
