@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,16 @@ import { useFocusEffect } from "expo-router";
 import { AuthContext } from "../../app/_layout";
 import { FlipCard } from "../components/FlipCard";
 import { CardInfoModal } from "../components/CardInfoModal";
+import { SessionActionModal } from "../components/SessionActionModal";
 import { getAllCards, updateCard, deleteCard, type Card } from "../lib/cards";
 import { getHistoryForCard } from "../lib/review-history";
-import { getSessions } from "../lib/sessions";
+import { getSessions, updateSession, deleteSession } from "../lib/sessions";
 import { buildSections, type ExploreSection } from "../lib/explore-helpers";
+import { searchCards, type SearchResult } from "../lib/search";
 import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+
+const SEARCH_DEBOUNCE_MS = 300;
+const MIN_SEARCH_LENGTH = 2;
 
 export const ExploreScreen: React.FC = () => {
   const auth = useContext(AuthContext);
@@ -28,7 +33,12 @@ export const ExploreScreen: React.FC = () => {
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [lastReviewed, setLastReviewed] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<ExploreSection | null>(null);
   const selectedIdRef = useRef<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchGenRef = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +73,41 @@ export const ExploreScreen: React.FC = () => {
       return () => { cancelled = true; };
     }, [auth?.session?.user?.id]),
   );
+
+  const token = auth?.session?.access_token;
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < MIN_SEARCH_LENGTH) {
+      ++searchGenRef.current;
+      setSearchResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    const gen = ++searchGenRef.current;
+
+    debounceRef.current = setTimeout(async () => {
+      if (!token) return;
+      try {
+        const results = await searchCards(trimmed, token);
+        if (searchGenRef.current !== gen) return;
+        setSearchResults(results);
+      } catch (err) {
+        console.error("Search failed:", err);
+        if (searchGenRef.current === gen) setSearchResults([]);
+      } finally {
+        if (searchGenRef.current === gen) setIsSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery, token]);
 
   const toggleSection = useCallback((sessionId: string) => {
     setCollapsedIds((prev) => {
@@ -119,15 +164,69 @@ export const ExploreScreen: React.FC = () => {
     }
   }, []);
 
-  const displaySections = useMemo(
-    () =>
-      sections.map((section) =>
-        collapsedIds.has(section.sessionId)
-          ? { ...section, data: [] }
-          : section,
-      ),
-    [sections, collapsedIds],
-  );
+  const handleSessionLongPress = useCallback((section: ExploreSection) => {
+    if (section.sessionId === "ungrouped") return;
+    setSelectedSession(section);
+  }, []);
+
+  const handleSessionRename = useCallback(async (sessionId: string, newTitle: string | null) => {
+    try {
+      await updateSession(sessionId, { summary: newTitle });
+      const displayTitle = newTitle ?? "Untitled session";
+      setSections((prev) =>
+        prev.map((s) =>
+          s.sessionId === sessionId ? { ...s, title: displayTitle } : s,
+        ),
+      );
+      setSelectedSession(null);
+    } catch (err) {
+      console.error("Failed to rename session:", err);
+      throw err;
+    }
+  }, []);
+
+  const handleSessionDelete = useCallback(async (sessionId: string) => {
+    try {
+      await deleteSession(sessionId);
+      const deletedCardIds = new Set(
+        sections.find((s) => s.sessionId === sessionId)?.data.map((c) => c.id) ?? [],
+      );
+      setSections((prev) => prev.filter((s) => s.sessionId !== sessionId));
+      setAllCards((prev) => prev.filter((c) => !deletedCardIds.has(c.id)));
+      setCollapsedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      setSelectedSession(null);
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      throw err;
+    }
+  }, [sections]);
+
+  const displaySections = useMemo(() => {
+    let filtered = sections;
+
+    if (searchResults !== null) {
+      const matchedCardIds = new Set(searchResults.map((r) => r.card_id));
+      const similarityByCard = new Map(searchResults.map((r) => [r.card_id, r.similarity]));
+
+      filtered = sections
+        .filter((s) => s.data.some((c) => matchedCardIds.has(c.id)))
+        .sort((a, b) => {
+          const maxA = Math.max(...a.data.map((c) => similarityByCard.get(c.id) ?? 0));
+          const maxB = Math.max(...b.data.map((c) => similarityByCard.get(c.id) ?? 0));
+          return maxB - maxA;
+        });
+    }
+
+    return filtered.map((section) =>
+      collapsedIds.has(section.sessionId)
+        ? { ...section, data: [] }
+        : section,
+    );
+  }, [sections, collapsedIds, searchResults]);
 
   const renderCard = useCallback(
     ({ item }: { item: Card }) => (
@@ -146,11 +245,14 @@ export const ExploreScreen: React.FC = () => {
   const renderSectionHeader = useCallback(
     ({ section }: { section: ExploreSection }) => {
       const isCollapsed = collapsedIds.has(section.sessionId);
+      const isRealSession = section.sessionId !== "ungrouped";
       return (
         <TouchableOpacity
           style={styles.sectionHeader}
           onPress={() => toggleSection(section.sessionId)}
+          onLongPress={isRealSession ? () => handleSessionLongPress(section) : undefined}
           activeOpacity={0.7}
+          accessibilityHint={isRealSession ? "Long press for session options" : undefined}
         >
           <View style={styles.sectionLeft}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -167,7 +269,7 @@ export const ExploreScreen: React.FC = () => {
         </TouchableOpacity>
       );
     },
-    [collapsedIds, toggleSection],
+    [collapsedIds, toggleSection, handleSessionLongPress],
   );
 
   const hasCards = allCards.length > 0;
@@ -188,16 +290,25 @@ export const ExploreScreen: React.FC = () => {
 
       {!loading && hasCards && (
         <View style={styles.searchWrap}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search cards..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-          />
+          <View style={styles.searchRow}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search cards..."
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+            {isSearching && (
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+                style={styles.searchSpinner}
+              />
+            )}
+          </View>
         </View>
       )}
 
@@ -210,6 +321,13 @@ export const ExploreScreen: React.FC = () => {
           <Text style={styles.emptyTitle}>No cards yet</Text>
           <Text style={styles.emptyHint}>
             Record something to generate{"\n"}your first cards.
+          </Text>
+        </View>
+      ) : searchResults !== null && displaySections.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyTitle}>No matches</Text>
+          <Text style={styles.emptyHint}>
+            Try a different search term.
           </Text>
         </View>
       ) : (
@@ -230,6 +348,13 @@ export const ExploreScreen: React.FC = () => {
         onEdit={handleEdit}
         onDelete={handleDelete}
         onClose={() => setSelectedCard(null)}
+      />
+      <SessionActionModal
+        session={selectedSession}
+        visible={selectedSession !== null}
+        onRename={handleSessionRename}
+        onDelete={handleSessionDelete}
+        onClose={() => setSelectedSession(null)}
       />
     </SafeAreaView>
   );
@@ -278,6 +403,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
+  searchRow: {
+    position: "relative",
+    justifyContent: "center",
+  },
   searchInput: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
@@ -285,8 +414,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
+    paddingRight: 40,
     fontSize: fontSize.sm,
     color: colors.text,
+  },
+  searchSpinner: {
+    position: "absolute",
+    right: spacing.md,
   },
   list: {
     paddingTop: spacing.sm,
