@@ -1,22 +1,14 @@
 import React, { useCallback, useContext, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-} from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { File } from "expo-file-system";
 import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
-import { Waveform } from "../../src/components/Waveform";
-import { RecordButton } from "../../src/components/RecordButton";
+import { RadialRecorder } from "../../src/components/RadialRecorder";
 import { useRecorder } from "../../src/hooks/useRecorder";
 import { api } from "../../src/lib/api";
 import { colors, spacing, fontSize } from "../../src/constants/theme";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -105,21 +97,6 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.stage}>
-        {isRecording && (
-          <>
-            <View style={styles.waveformWrap}>
-              <Waveform
-                levels={levels}
-                barCount={Math.floor((SCREEN_WIDTH - 48) / 4.5)}
-                height={120}
-                color="rgba(162, 155, 254, 0.5)"
-                accentColor={colors.primaryLight}
-              />
-            </View>
-            <Text style={styles.timer}>{formatDuration(durationMs)}</Text>
-          </>
-        )}
-
         {!isRecording && !isSubmitting && summary ? (
           <Text style={styles.summary}>{summary}</Text>
         ) : !isRecording && !isSubmitting ? (
@@ -128,10 +105,15 @@ export default function HomeScreen() {
           <Text style={styles.hint}>Transcribing...</Text>
         ) : null}
 
-        <RecordButton
+        <RadialRecorder
           isRecording={isRecording}
+          currentLevel={levels.length > 0 ? levels[levels.length - 1] : 0}
           onPress={handleToggle}
         />
+
+        {isRecording && (
+          <Text style={styles.timer}>{formatDuration(durationMs)}</Text>
+        )}
       </View>
 
       <View style={styles.footer}>
@@ -189,11 +171,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: spacing.lg,
-  },
-  waveformWrap: {
-    width: "100%",
-    height: 120,
+    gap: spacing.md,
   },
   timer: {
     fontSize: 13,
