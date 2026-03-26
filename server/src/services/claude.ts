@@ -146,6 +146,162 @@ export interface ChatContext {
   linkedConcepts: string;
 }
 
+export interface QuizCandidate {
+  question: string;
+  expected_answer: string;
+  quiz_type: string;
+}
+
+export interface QuizEvaluation {
+  score: number;
+  feedback: string;
+  confidence_rating: number;
+}
+
+const quizPoolSchema = {
+  type: "object" as const,
+  properties: {
+    questions: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          question: {
+            type: "string" as const,
+            description: "The quiz question text, under 140 characters",
+          },
+          expected_answer: {
+            type: "string" as const,
+            description: "What a strong answer would cover, 2-4 sentences, under 300 characters",
+          },
+          quiz_type: {
+            type: "string" as const,
+            enum: ["explain", "distinguish", "connect", "apply", "synthesize"],
+          },
+        },
+        required: ["question", "expected_answer", "quiz_type"] as const,
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["questions"] as const,
+  additionalProperties: false,
+};
+
+const quizEvalSchema = {
+  type: "object" as const,
+  properties: {
+    score: {
+      type: "number" as const,
+      description: "1-4 rating of response quality",
+    },
+    feedback: {
+      type: "string" as const,
+      description: "2-3 sentences explaining what was right, wrong, and what a strong answer looks like",
+    },
+    confidence_rating: {
+      type: "number" as const,
+      description: "1-4 confidence mapping for spaced repetition",
+    },
+  },
+  required: ["score", "feedback", "confidence_rating"] as const,
+  additionalProperties: false,
+};
+
+export async function generateQuizPool(
+  dueCards: string,
+  contextCards: string,
+): Promise<QuizCandidate[]> {
+  const prompt = loadPrompt("generate-quiz-pool", {
+    dueCards,
+    contextCards,
+  });
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 16384,
+    messages: [{ role: "user", content: prompt }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: quizPoolSchema,
+      },
+    },
+  });
+
+  const block = message.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const result = JSON.parse(block.text) as { questions: QuizCandidate[] };
+  return result.questions;
+}
+
+export async function curateQuizzes(
+  candidatePool: string,
+  targetCount: number,
+): Promise<QuizCandidate[]> {
+  const prompt = loadPrompt("curate-quizzes", {
+    candidatePool,
+    targetCount: String(targetCount),
+    distribution: "Explain ~40%, Distinguish ~25%, Connect ~20%, Apply ~10%, Synthesize ~5%",
+  });
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 8192,
+    messages: [{ role: "user", content: prompt }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: quizPoolSchema,
+      },
+    },
+  });
+
+  const block = message.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  const result = JSON.parse(block.text) as { questions: QuizCandidate[] };
+  return result.questions;
+}
+
+export async function evaluateQuizAnswer(
+  question: string,
+  expectedAnswer: string,
+  userResponse: string,
+  quizType: string,
+): Promise<QuizEvaluation> {
+  const prompt = loadPrompt("evaluate-quiz", {
+    question,
+    expectedAnswer,
+    userResponse,
+    quizType,
+  });
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: prompt }],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: quizEvalSchema,
+      },
+    },
+  });
+
+  const block = message.content[0];
+  if (block.type !== "text") {
+    throw new Error("Unexpected response type from Claude");
+  }
+
+  return JSON.parse(block.text) as QuizEvaluation;
+}
+
 export async function chatAboutConcept(
   context: ChatContext,
   question: string,
