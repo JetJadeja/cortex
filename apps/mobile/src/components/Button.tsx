@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, Text, StyleSheet, ViewStyle, TextStyle } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
 
 interface ButtonProps {
   title: string;
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   secondary: {
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.primary,
   } as ViewStyle,
   ghost: {
     backgroundColor: "transparent",
@@ -65,14 +65,14 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   } as ViewStyle,
   text: {
-    color: colors.text,
+    color: "#ffffff",
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: fontSize.md,
-    fontWeight: "600",
   } as TextStyle,
   ghostText: {
-    color: colors.primaryLight,
+    color: colors.primary,
   } as TextStyle,
   secondaryText: {
-    color: colors.textSecondary,
+    color: colors.primary,
   } as TextStyle,
 });
