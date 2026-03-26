@@ -82,4 +82,4 @@ EXPO_ARGS="--clear"
 if [ "$TUNNEL" = true ]; then
   EXPO_ARGS="$EXPO_ARGS --tunnel"
 fi
-cd "$ROOT_DIR/apps/mobile" && bunx expo start $EXPO_ARGS
+cd "$ROOT_DIR/apps/mobile" && bunx expo start --clear $EXPO_ARGS
