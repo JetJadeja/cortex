@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Animated, Pressable, Text, View, StyleSheet } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius, shadow } from "../constants/theme";
 import type { CardType } from "../lib/cards";
 
 interface FlipCardProps {
@@ -55,7 +55,6 @@ export function FlipCard({ front, back, cardType, onLongPress }: FlipCardProps) 
   };
 
   const handlePressOut = () => {
-    // Clear long-press guard after onPress has a chance to read it
     requestAnimationFrame(() => { longPressedRef.current = false; });
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -126,9 +125,8 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
     padding: spacing.lg,
+    ...shadow.card,
   },
   faceBack: {
     position: "absolute",
@@ -138,32 +136,33 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   typeLabel: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
-    fontWeight: "600",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: colors.textMuted,
+    color: colors.textSecondary,
   },
   typeLabelBack: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
-    fontWeight: "600",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: colors.primaryLight,
+    color: colors.primary,
   },
   frontBody: {
     flex: 1,
     justifyContent: "center",
   },
   frontText: {
-    fontFamily: "Georgia",
+    fontFamily: fontFamily.serif,
     fontSize: 18,
     lineHeight: 28,
     color: colors.text,
   },
   backText: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.md,
     lineHeight: 24,
-    color: colors.primaryLight,
+    color: colors.primary,
   },
 });

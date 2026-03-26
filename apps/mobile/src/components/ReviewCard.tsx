@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Animated, Pressable, Text, View, StyleSheet } from "react-native";
-import { colors, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize, borderRadius, shadow } from "../constants/theme";
 
 interface ReviewCardProps {
   front: string;
@@ -79,14 +79,8 @@ const styles = StyleSheet.create({
     height: CARD_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
     padding: spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    ...shadow.cardLarge,
   },
   faceBack: {
     position: "absolute",
@@ -96,31 +90,31 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   hint: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 10,
-    fontWeight: "600",
     letterSpacing: 2.5,
     color: colors.textMuted,
-    opacity: 0.7,
   },
   body: {
     flex: 1,
     justifyContent: "center",
   },
   frontText: {
-    fontFamily: "Georgia",
+    fontFamily: fontFamily.serif,
     fontSize: 19,
     lineHeight: 30,
     color: colors.text,
   },
   answerLabel: {
+    fontFamily: fontFamily.sansSemiBold,
     fontSize: 10,
-    fontWeight: "600",
     letterSpacing: 2.5,
-    color: colors.primaryLight,
+    color: colors.primary,
   },
   backText: {
+    fontFamily: fontFamily.sans,
     fontSize: fontSize.md,
     lineHeight: 26,
-    color: colors.primaryLight,
+    color: colors.primary,
   },
 });
