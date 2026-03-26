@@ -8,7 +8,10 @@ import { Button } from "../../src/components/Button";
 import { RadialRecorder } from "../../src/components/RadialRecorder";
 import { useRecorder } from "../../src/hooks/useRecorder";
 import { api } from "../../src/lib/api";
-import { colors, fontFamily, spacing, fontSize } from "../../src/constants/theme";
+import { colors, fontFamily, spacing } from "../../src/constants/theme";
+
+const HEADER_HEIGHT = 140;
+const ACCENT = "#4361ee";
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -24,10 +27,9 @@ interface ProcessResponse {
 
 export default function HomeScreen() {
   const auth = useContext(AuthContext);
-  const displayName = auth?.profile?.display_name ?? "there";
   const { isRecording, durationMs, levels, start, stop } = useRecorder();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [topic, setTopic] = useState<string | null>(null);
   const [dueCount, setDueCount] = useState<number | null>(null);
 
   useFocusEffect(
@@ -53,11 +55,10 @@ export default function HomeScreen() {
         { audio: base64, mimetype: "audio/m4a" },
         token,
       );
-      const topic = response.summary || "your recording";
-      setSummary(`Building cards on ${topic}.`);
+      setTopic(response.summary || "your recording");
     } catch (err) {
       console.error("Failed to submit recording:", err);
-      setSummary("Recording saved.");
+      setTopic("your recording");
     } finally {
       setIsSubmitting(false);
     }
@@ -71,52 +72,59 @@ export default function HomeScreen() {
         submitRecording(uri);
       }
     } else {
-      setSummary(null);
+      setTopic(null);
       await start();
     }
   };
 
-  const subtitleText = isRecording
-    ? "Listening..."
+  const stateLabel = isRecording
+    ? "RECORDING"
     : isSubmitting
-      ? "Transcribing..."
-      : "Explain what you just learned.";
+      ? "TRANSCRIBING"
+      : topic
+        ? "CAPTURED"
+        : "NEW ENTRY";
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label}>CORTEX</Text>
-        <Text style={styles.greeting}>Hey, {displayName}</Text>
-        <Text style={styles.subtitle}>{subtitleText}</Text>
-        {dueCount != null && dueCount > 0 && (
-          <Text style={styles.dueCount}>{dueCount} cards to review</Text>
-        )}
-        {dueCount === 0 && (
-          <Text style={styles.allCaughtUp}>All caught up ✓</Text>
+        <Text style={styles.label}>{stateLabel}</Text>
+        {topic && !isRecording && !isSubmitting ? (
+          <Text style={styles.headline} numberOfLines={3}>
+            <Text style={styles.headlineAccent}>{topic}.</Text>
+          </Text>
+        ) : (
+          <Text style={styles.headline} numberOfLines={3}>
+            {"Capture your\n"}
+            <Text style={styles.headlineAccent}>thoughts.</Text>
+          </Text>
         )}
       </View>
 
       <View style={styles.stage}>
-        {!isRecording && !isSubmitting && summary ? (
-          <Text style={styles.summary}>{summary}</Text>
-        ) : !isRecording && !isSubmitting ? (
-          <Text style={styles.hint}>Tap to record</Text>
-        ) : isSubmitting ? (
-          <Text style={styles.hint}>Transcribing...</Text>
-        ) : null}
-
         <RadialRecorder
           isRecording={isRecording}
           currentLevel={levels.length > 0 ? levels[levels.length - 1] : 0}
           onPress={handleToggle}
         />
-
-        {isRecording && (
-          <Text style={styles.timer}>{formatDuration(durationMs)}</Text>
-        )}
+        <View style={styles.timerSlot}>
+          {isRecording && (
+            <Text style={styles.timer}>{formatDuration(durationMs)}</Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.footer}>
+        <View style={styles.dueRow}>
+          {dueCount != null && dueCount > 0 && (
+            <Text style={styles.dueCount}>
+              {dueCount} {dueCount === 1 ? "card" : "cards"} to review
+            </Text>
+          )}
+          {dueCount === 0 && (
+            <Text style={styles.allCaughtUp}>All caught up</Text>
+          )}
+        </View>
         <View style={styles.footerLine} />
         <Button
           title="Sign Out"
@@ -134,72 +142,64 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    height: HEADER_HEIGHT,
     paddingTop: spacing.xl,
     paddingHorizontal: spacing.lg,
-    gap: 6,
   },
   label: {
     fontFamily: fontFamily.sansSemiBold,
     fontSize: 11,
     letterSpacing: 3,
     color: colors.primary,
-    marginBottom: spacing.xs,
+    marginBottom: 8,
   },
-  greeting: {
+  headline: {
     fontFamily: fontFamily.serifBold,
-    fontSize: 28,
+    fontSize: 36,
+    lineHeight: 42,
     color: colors.text,
   },
-  subtitle: {
+  headlineAccent: {
     fontFamily: fontFamily.serifItalic,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  dueCount: {
-    fontFamily: fontFamily.sansSemiBold,
-    fontSize: fontSize.sm,
-    color: colors.primary,
-    marginTop: spacing.sm,
-  },
-  allCaughtUp: {
-    fontFamily: fontFamily.sansMedium,
-    fontSize: fontSize.sm,
-    color: colors.success,
-    marginTop: spacing.sm,
+    color: ACCENT,
   },
   stage: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: spacing.md,
+  },
+  timerSlot: {
+    minHeight: 28,
+    justifyContent: "center",
+    alignItems: "center",
   },
   timer: {
     fontFamily: fontFamily.mono,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
     letterSpacing: 2,
     fontVariant: ["tabular-nums"],
   },
-  hint: {
-    fontFamily: fontFamily.sansMedium,
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  summary: {
-    fontFamily: fontFamily.sans,
-    fontSize: fontSize.md,
-    color: colors.primary,
-    textAlign: "center",
-    paddingHorizontal: spacing.lg,
-  },
   footer: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     paddingHorizontal: spacing.lg,
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  dueRow: {
+    minHeight: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dueCount: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 13,
+    color: colors.primary,
+  },
+  allCaughtUp: {
+    fontFamily: fontFamily.sansMedium,
+    fontSize: 13,
+    color: colors.success,
   },
   footerLine: {
     width: 40,
