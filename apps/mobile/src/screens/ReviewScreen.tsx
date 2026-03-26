@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
+import { colors, fontFamily, spacing, fontSize } from "../constants/theme";
 import { Button } from "../components/Button";
 import { ReviewCard } from "../components/ReviewCard";
+import { QuizCard } from "../components/QuizCard";
 import { ConfidenceRating } from "../components/ConfidenceRating";
 import { EffortToggle } from "../components/EffortToggle";
 import { useReview } from "../hooks/useReview";
@@ -40,6 +41,9 @@ export const ReviewScreen: React.FC = () => {
   const handleStartReview = () => {
     review.start();
   };
+
+  const isQuiz = review.item?.type === "quiz";
+  const showingQuizFeedback = review.quizResult !== null;
 
   if (review.state === "loading") {
     return (
@@ -89,7 +93,7 @@ export const ReviewScreen: React.FC = () => {
           <Text style={styles.browseLabel}>BROWSING</Text>
         </View>
         <View style={styles.cardArea}>
-          {review.item && (
+          {review.item && review.item.type === "card" && (
             <ReviewCard
               key={review.attemptId}
               front={review.item.front}
@@ -132,7 +136,31 @@ export const ReviewScreen: React.FC = () => {
       </View>
 
       <View style={styles.cardArea}>
-        {review.item && (
+        {showingQuizFeedback && review.quizResult && (
+          <QuizCard
+            key="quiz-feedback"
+            question=""
+            quizType=""
+            isSubmitting={false}
+            quizResult={review.quizResult}
+            onSubmit={() => {}}
+            onNext={() => review.clearQuizResult()}
+          />
+        )}
+        {!showingQuizFeedback && review.item && isQuiz && review.item.type === "quiz" && (
+          <QuizCard
+            key={review.attemptId}
+            question={review.item.question}
+            quizType={review.item.quiz_type}
+            isSubmitting={review.isSubmitting}
+            quizResult={null}
+            onSubmit={(audio, mimetype) =>
+              review.submitQuizAnswer(audio, mimetype)
+            }
+            onNext={() => {}}
+          />
+        )}
+        {!showingQuizFeedback && review.item && !isQuiz && review.item.type === "card" && (
           <ReviewCard
             key={review.attemptId}
             front={review.item.front}
@@ -142,15 +170,17 @@ export const ReviewScreen: React.FC = () => {
         )}
       </View>
 
-      <View style={styles.ratingArea}>
-        <EffortToggle value={effort} onChange={setEffort} />
-        <ConfidenceRating
-          onSelect={(c) => review.submitRating(c, effort)}
-          disabled={review.isSubmitting}
-          revealed={isRevealed}
-          disabledOptions={effort ? [] : [4]}
-        />
-      </View>
+      {!isQuiz && !showingQuizFeedback && (
+        <View style={styles.ratingArea}>
+          <EffortToggle value={effort} onChange={setEffort} />
+          <ConfidenceRating
+            onSelect={(c) => review.submitRating(c, effort)}
+            disabled={review.isSubmitting}
+            revealed={isRevealed}
+            disabledOptions={effort ? [] : [4]}
+          />
+        </View>
+      )}
 
       {review.error && <Text style={styles.error}>{review.error}</Text>}
     </SafeAreaView>

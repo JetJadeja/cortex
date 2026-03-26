@@ -5,12 +5,27 @@ import { AuthContext } from "../../app/_layout";
 
 type ReviewState = "loading" | "active" | "done" | "browse" | "empty";
 
-interface ReviewItem {
+interface CardItem {
   type: "card";
   card_id: string;
   concept_id: string;
   front: string;
   back: string;
+}
+
+interface QuizItem {
+  type: "quiz";
+  quiz_id: string;
+  concept_id: string;
+  question: string;
+  quiz_type: string;
+}
+
+type ReviewItem = CardItem | QuizItem;
+
+interface QuizResult {
+  score: number;
+  feedback: string;
 }
 
 interface AdvanceResponse {
@@ -20,6 +35,7 @@ interface AdvanceResponse {
   attempt_id: string | null;
   item: ReviewItem | null;
   message?: string;
+  quiz_result?: QuizResult;
 }
 
 export interface UseReviewReturn {
@@ -31,8 +47,11 @@ export interface UseReviewReturn {
   message: string | null;
   isSubmitting: boolean;
   error: string | null;
+  quizResult: QuizResult | null;
   start: () => Promise<void>;
   submitRating: (confidence: number, effort: boolean) => Promise<void>;
+  submitQuizAnswer: (audio: string, mimetype: string) => Promise<void>;
+  clearQuizResult: () => void;
   startBrowsing: () => Promise<void>;
   nextBrowseCard: () => Promise<void>;
 }
@@ -47,6 +66,7 @@ export function useReview(): UseReviewReturn {
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
 
   const token = auth?.session?.access_token;
 
@@ -64,6 +84,7 @@ export function useReview(): UseReviewReturn {
       setDueCount(newDueCount);
       emitDueCount(newDueCount);
       setMessage(res.message ?? null);
+      setQuizResult(res.quiz_result ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Review failed");
     } finally {
@@ -78,7 +99,6 @@ export function useReview(): UseReviewReturn {
     await advance({ action: "next" });
   }, [advance]);
 
-  // Auto-start when token becomes available (handles auth race)
   useEffect(() => {
     if (token && !hasStarted.current) {
       hasStarted.current = true;
@@ -87,7 +107,8 @@ export function useReview(): UseReviewReturn {
   }, [token, start]);
 
   const submitRating = useCallback(async (confidence: number, effort: boolean) => {
-    if (!item || isSubmitting) return;
+    if (!item || item.type !== "card" || isSubmitting) return;
+    setQuizResult(null);
     await advance({
       action: "rate",
       card_id: item.card_id,
@@ -96,6 +117,20 @@ export function useReview(): UseReviewReturn {
       effort,
     });
   }, [advance, item, isSubmitting]);
+
+  const submitQuizAnswer = useCallback(async (audio: string, mimetype: string) => {
+    if (!item || item.type !== "quiz" || isSubmitting) return;
+    await advance({
+      action: "quiz_rate",
+      quiz_id: item.quiz_id,
+      audio,
+      mimetype,
+    });
+  }, [advance, item, isSubmitting]);
+
+  const clearQuizResult = useCallback(() => {
+    setQuizResult(null);
+  }, []);
 
   const startBrowsing = useCallback(async () => {
     await advance({ action: "browse" });
@@ -114,8 +149,11 @@ export function useReview(): UseReviewReturn {
     message,
     isSubmitting,
     error,
+    quizResult,
     start,
     submitRating,
+    submitQuizAnswer,
+    clearQuizResult,
     startBrowsing,
     nextBrowseCard,
   };
