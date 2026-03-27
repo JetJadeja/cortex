@@ -185,6 +185,7 @@ export async function processQuizRating(
     phase: 1,
     schedule_applied: false,
     ai_score: evaluation.score,
+    created_at: new Date().toISOString(),
   });
 
   if (error)
@@ -225,6 +226,7 @@ async function insertReviewHistory(
     was_voice: !!input.user_answer,
     phase: 1,
     schedule_applied: scheduleApplied,
+    created_at: new Date().toISOString(),
   });
 
   if (error)

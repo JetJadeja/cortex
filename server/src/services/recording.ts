@@ -17,6 +17,7 @@ export async function createSession(
     user_id: userId,
     transcript,
     processing_status: "pending",
+    created_at: new Date().toISOString(),
   };
   if (summary) row.summary = summary;
 
@@ -112,6 +113,7 @@ export async function writeConceptsAndCards(
         session_id: sessionId,
         title: concept.title,
         explanation: concept.explanation,
+        created_at: new Date().toISOString(),
       })
       .select("id")
       .single();

@@ -173,6 +173,7 @@ async function insertCard(
     back,
     due_at: newCardDueAt(timezone).toISOString(),
     due_date: newCardDueDate(timezone),
+    created_at: new Date().toISOString(),
   };
   if (embedding) {
     row.embedding = embedding;
@@ -212,6 +213,7 @@ async function logDedupDecision(
     matched_card_id: decision.mergeTargetId,
     similarity: decision.bestSimilarity,
     reason: decision.reason,
+    created_at: new Date().toISOString(),
   });
 
   if (error) {
