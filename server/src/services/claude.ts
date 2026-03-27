@@ -70,11 +70,6 @@ export interface ChatMessage {
   content: string;
 }
 
-interface ReviewEvaluation {
-  score: number;
-  feedback: string;
-  correct: boolean;
-}
 
 export async function extractConcepts(transcript: string): Promise<ExtractedConcept[]> {
   const prompt = loadPrompt("process-transcript", { transcript });
@@ -111,32 +106,6 @@ export async function generateRecordingSummary(transcript: string): Promise<stri
 
   const text = message.content[0].type === "text" ? message.content[0].text : "";
   return text.trim();
-}
-
-export async function evaluateReview(
-  question: string,
-  expectedAnswer: string,
-  userResponse: string
-): Promise<ReviewEvaluation> {
-  const systemPrompt = loadPrompt("evaluate-review", {
-    question,
-    expectedAnswer,
-    userResponse,
-  });
-
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: systemPrompt,
-      },
-    ],
-  });
-
-  const text = message.content[0].type === "text" ? message.content[0].text : "";
-  return JSON.parse(text) as ReviewEvaluation;
 }
 
 export interface ChatContext {

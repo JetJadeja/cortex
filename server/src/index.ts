@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import { processRecordingRouter } from "./routes/processRecording";
-import { evaluateReviewRouter } from "./routes/evaluateReview";
 import { reviewRouter } from "./routes/review";
 import { chatRouter } from "./routes/chat";
 import { searchRouter } from "./routes/search";
@@ -19,7 +18,6 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/process-recording", processRecordingRouter);
-app.use("/evaluate-review", evaluateReviewRouter);
 app.use("/review", reviewRouter);
 app.use("/chat", chatRouter);
 app.use("/search", searchRouter);
