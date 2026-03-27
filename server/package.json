@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/prompts dist/prompts",
     "start": "bun dist/index.js"
   },
   "dependencies": {
