@@ -64,6 +64,24 @@ export const ReviewScreen: React.FC = () => {
     );
   }
 
+  if (showingQuizFeedback && review.quizResult) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.cardArea}>
+          <QuizCard
+            key="quiz-feedback"
+            question=""
+            quizType=""
+            isSubmitting={false}
+            quizResult={review.quizResult}
+            onSubmit={() => {}}
+            onNext={() => review.clearQuizResult()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (review.state === "done") {
     return (
       <SafeAreaView style={styles.centered}>
@@ -136,18 +154,7 @@ export const ReviewScreen: React.FC = () => {
       </View>
 
       <View style={styles.cardArea}>
-        {showingQuizFeedback && review.quizResult && (
-          <QuizCard
-            key="quiz-feedback"
-            question=""
-            quizType=""
-            isSubmitting={false}
-            quizResult={review.quizResult}
-            onSubmit={() => {}}
-            onNext={() => review.clearQuizResult()}
-          />
-        )}
-        {!showingQuizFeedback && review.item && isQuiz && review.item.type === "quiz" && (
+        {review.item && isQuiz && review.item.type === "quiz" && (
           <QuizCard
             key={review.attemptId}
             question={review.item.question}
@@ -160,7 +167,7 @@ export const ReviewScreen: React.FC = () => {
             onNext={() => {}}
           />
         )}
-        {!showingQuizFeedback && review.item && !isQuiz && review.item.type === "card" && (
+        {review.item && !isQuiz && review.item.type === "card" && (
           <ReviewCard
             key={review.attemptId}
             front={review.item.front}
@@ -170,7 +177,7 @@ export const ReviewScreen: React.FC = () => {
         )}
       </View>
 
-      {!isQuiz && !showingQuizFeedback && (
+      {!isQuiz && (
         <View style={styles.ratingArea}>
           <EffortToggle value={effort} onChange={setEffort} />
           <ConfidenceRating
