@@ -7,18 +7,18 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  RefreshControl,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
 import { AuthContext } from "../../app/_layout";
 import { FlipCard } from "../components/FlipCard";
 import { CardInfoModal } from "../components/CardInfoModal";
 import { SessionActionModal } from "../components/SessionActionModal";
-import { getAllCards, updateCard, deleteCard, type Card } from "../lib/cards";
+import { useExploreData } from "../hooks/useExploreData";
+import type { Card } from "../lib/cards";
 import { getHistoryForCard } from "../lib/review-history";
-import { getSessions, updateSession, deleteSession } from "../lib/sessions";
-import { buildSections, type ExploreSection } from "../lib/explore-helpers";
+import type { ExploreSection } from "../lib/explore-helpers";
 import { searchCards, type SearchResult } from "../lib/search";
 import { colors, fontFamily, spacing, fontSize, borderRadius } from "../constants/theme";
 
@@ -27,10 +27,20 @@ const MIN_SEARCH_LENGTH = 2;
 
 export const ExploreScreen: React.FC = () => {
   const auth = useContext(AuthContext);
-  const [sections, setSections] = useState<ExploreSection[]>([]);
-  const [allCards, setAllCards] = useState<Card[]>([]);
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const {
+    sections,
+    allCards,
+    loading,
+    isRefreshing,
+    refresh,
+    collapsedIds,
+    toggleSection,
+    editCard,
+    removeCard,
+    renameSession,
+    removeSession,
+  } = useExploreData();
+
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [lastReviewed, setLastReviewed] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -40,40 +50,6 @@ export const ExploreScreen: React.FC = () => {
   const selectedIdRef = useRef<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchGenRef = useRef(0);
-
-  useFocusEffect(
-    useCallback(() => {
-      const userId = auth?.session?.user?.id;
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
-      let cancelled = false;
-
-      async function fetchData() {
-        setLoading(true);
-        try {
-          const [sessionsData, cardsData] = await Promise.all([
-            getSessions(userId!),
-            getAllCards(userId!),
-          ]);
-          if (cancelled) return;
-          const built = buildSections(sessionsData, cardsData);
-          setSections(built);
-          setAllCards(cardsData);
-          setCollapsedIds(new Set(built.map((s) => s.sessionId)));
-        } catch (err) {
-          console.error("Failed to fetch explore data:", err);
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      }
-
-      fetchData();
-      return () => { cancelled = true; };
-    }, [auth?.session?.user?.id]),
-  );
 
   const token = auth?.session?.access_token;
 
@@ -110,18 +86,6 @@ export const ExploreScreen: React.FC = () => {
     };
   }, [searchQuery, token]);
 
-  const toggleSection = useCallback((sessionId: string) => {
-    setCollapsedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) {
-        next.delete(sessionId);
-      } else {
-        next.add(sessionId);
-      }
-      return next;
-    });
-  }, []);
-
   const handleLongPress = useCallback(async (card: Card) => {
     selectedIdRef.current = card.id;
     setSelectedCard(card);
@@ -137,33 +101,21 @@ export const ExploreScreen: React.FC = () => {
 
   const handleEdit = useCallback(async (cardId: string, front: string, back: string) => {
     try {
-      const updated = await updateCard(cardId, { front, back });
-      const replace = (c: Card) => (c.id === cardId ? updated : c);
-      setAllCards((prev) => prev.map(replace));
-      setSections((prev) =>
-        prev.map((s) => ({ ...s, data: s.data.map(replace) })),
-      );
+      const updated = await editCard(cardId, front, back);
       setSelectedCard(updated);
     } catch (err) {
       console.error("Failed to update card:", err);
     }
-  }, []);
+  }, [editCard]);
 
   const handleDelete = useCallback(async (cardId: string) => {
     try {
-      await deleteCard(cardId);
-      const remove = (c: Card) => c.id !== cardId;
-      setAllCards((prev) => prev.filter(remove));
-      setSections((prev) =>
-        prev
-          .map((s) => ({ ...s, data: s.data.filter(remove), cardCount: s.data.filter(remove).length }))
-          .filter((s) => s.data.length > 0),
-      );
+      await removeCard(cardId);
       setSelectedCard(null);
     } catch (err) {
       console.error("Failed to delete card:", err);
     }
-  }, []);
+  }, [removeCard]);
 
   const handleSessionLongPress = useCallback((section: ExploreSection) => {
     if (section.sessionId === "ungrouped") return;
@@ -172,39 +124,23 @@ export const ExploreScreen: React.FC = () => {
 
   const handleSessionRename = useCallback(async (sessionId: string, newTitle: string | null) => {
     try {
-      await updateSession(sessionId, { summary: newTitle });
-      const displayTitle = newTitle ?? "Untitled session";
-      setSections((prev) =>
-        prev.map((s) =>
-          s.sessionId === sessionId ? { ...s, title: displayTitle } : s,
-        ),
-      );
+      await renameSession(sessionId, newTitle);
       setSelectedSession(null);
     } catch (err) {
       console.error("Failed to rename session:", err);
       throw err;
     }
-  }, []);
+  }, [renameSession]);
 
   const handleSessionDelete = useCallback(async (sessionId: string) => {
     try {
-      await deleteSession(sessionId);
-      const deletedCardIds = new Set(
-        sections.find((s) => s.sessionId === sessionId)?.data.map((c) => c.id) ?? [],
-      );
-      setSections((prev) => prev.filter((s) => s.sessionId !== sessionId));
-      setAllCards((prev) => prev.filter((c) => !deletedCardIds.has(c.id)));
-      setCollapsedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(sessionId);
-        return next;
-      });
+      await removeSession(sessionId);
       setSelectedSession(null);
     } catch (err) {
       console.error("Failed to delete session:", err);
       throw err;
     }
-  }, [sections]);
+  }, [removeSession]);
 
   const displaySections = useMemo(() => {
     let filtered = sections;
@@ -344,6 +280,13 @@ export const ExploreScreen: React.FC = () => {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={refresh}
+              tintColor={colors.primary}
+            />
+          }
         />
       )}
       <CardInfoModal
