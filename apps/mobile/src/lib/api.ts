@@ -1,5 +1,24 @@
 import { config } from "../constants/config";
 
+export class NetworkError extends Error {
+  readonly kind = "network" as const;
+  constructor(cause?: unknown) {
+    super("Network request failed");
+    this.name = "NetworkError";
+    if (cause instanceof Error) this.cause = cause;
+  }
+}
+
+export class ApiError extends Error {
+  readonly kind = "http" as const;
+  readonly status: number;
+  constructor(status: number, body: string) {
+    super(`API error ${status}: ${body}`);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
@@ -9,18 +28,23 @@ interface RequestOptions {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.apiUrl}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    throw new NetworkError(err);
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`API error ${response.status}: ${errorBody}`);
+    throw new ApiError(response.status, errorBody);
   }
 
   return response.json() as Promise<T>;
