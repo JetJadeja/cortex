@@ -6,12 +6,14 @@ import { Feather } from "@expo/vector-icons";
 import { colors, fontFamily, fontSize } from "../../src/constants/theme";
 import { api } from "../../src/lib/api";
 import { onDueCount } from "../../src/lib/due-count";
+import { useDrainQueue } from "../../src/hooks/useDrainQueue";
 import { AuthContext } from "../_layout";
 
 const POLL_INTERVAL_MS = 30_000;
 
 export default function AppLayout() {
   const auth = useContext(AuthContext);
+  const { pendingCount } = useDrainQueue();
   const [dueCount, setDueCount] = useState<number | undefined>(undefined);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -80,6 +82,13 @@ export default function AppLayout() {
             tabBarIcon: ({ color, size }) => (
               <Feather name="mic" size={size} color={color} />
             ),
+            tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: colors.primary,
+              color: "#ffffff",
+              fontSize: 10,
+              fontFamily: fontFamily.sansBold,
+            },
           }}
         />
         <Tabs.Screen

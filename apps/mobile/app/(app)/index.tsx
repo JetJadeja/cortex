@@ -7,7 +7,8 @@ import { AuthContext } from "../_layout";
 import { Button } from "../../src/components/Button";
 import { RadialRecorder } from "../../src/components/RadialRecorder";
 import { useRecorder } from "../../src/hooks/useRecorder";
-import { api } from "../../src/lib/api";
+import { api, NetworkError } from "../../src/lib/api";
+import { enqueue } from "../../src/lib/offline-queue";
 import { colors, fontFamily, spacing } from "../../src/constants/theme";
 
 const HEADER_HEIGHT = 140;
@@ -65,14 +66,23 @@ export default function HomeScreen() {
     try {
       const file = new File(uri);
       const base64 = await file.base64();
-      const response = await api.post<ProcessResponse>(
-        "/process-recording",
-        { audio: base64, mimetype: "audio/m4a" },
-        token,
-      );
-      setTopic(response.summary || "your recording");
+      try {
+        const response = await api.post<ProcessResponse>(
+          "/process-recording",
+          { audio: base64, mimetype: "audio/m4a" },
+          token,
+        );
+        setTopic(response.summary || "your recording");
+      } catch (err) {
+        if (err instanceof NetworkError) {
+          await enqueue(uri, "audio/m4a");
+        } else {
+          console.error("Failed to submit recording:", err);
+          setTopic("your recording");
+        }
+      }
     } catch (err) {
-      console.error("Failed to submit recording:", err);
+      console.error("Failed to read recording file:", err);
       setTopic("your recording");
     } finally {
       setIsSubmitting(false);
