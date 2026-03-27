@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Pressable,
@@ -6,6 +6,7 @@ import {
   Easing,
   StyleSheet,
 } from "react-native";
+import type { GestureResponderEvent } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
 import { colors } from "../constants/theme";
 
@@ -20,10 +21,19 @@ const BUTTON_SIZE = 60;
 const ICON_IDLE = 8;
 const ICON_REC = 12;
 
+/* ── magnetic attraction constants ── */
+const MAX_PULL = 30;
+const SPREAD_SIGMA_SQ = 60 * 60;
+const ENGAGE_K = 8;
+const DECAY_K = 4;
+const IDLE_BREATH = 5;
+const REC_BLEND_K = 6;
+
 interface RadialRecorderProps {
   isRecording: boolean;
   currentLevel: number;
   onPress: () => void;
+  magnetEnabled?: boolean;
 }
 
 interface FrameState {
@@ -34,7 +44,10 @@ interface FrameState {
 function buildTickPath(
   time: number,
   level: number,
-  recording: boolean,
+  recBlend: number,
+  touchX: number | null,
+  touchY: number | null,
+  attraction: number,
 ): string {
   let d = "";
   for (let i = 0; i < TICK_COUNT; i++) {
@@ -42,19 +55,28 @@ function buildTickPath(
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    let noise = 0;
-    if (recording) {
-      noise =
-        Math.sin(i * 0.2 + time) *
-        Math.cos(i * 0.1 - time * 2) *
-        32 *
-        level;
-      noise += Math.sin(i * 0.7 + time * 3) * 10 * level;
-    } else {
-      noise = Math.sin(i * 0.1 + time) * 5;
+    const idleNoise = Math.sin(i * 0.1 + time) * IDLE_BREATH;
+
+    let recNoise =
+      Math.sin(i * 0.2 + time) *
+      Math.cos(i * 0.1 - time * 2) *
+      32 *
+      level;
+    recNoise += Math.sin(i * 0.7 + time * 3) * 10 * level;
+
+    const noise = idleNoise * (1 - recBlend) + recNoise * recBlend;
+
+    let pull = 0;
+    if (attraction > 0.001 && touchX !== null && touchY !== null) {
+      const tickX = CX + cos * BASE_RADIUS;
+      const tickY = CY + sin * BASE_RADIUS;
+      const dx = touchX - tickX;
+      const dy = touchY - tickY;
+      const distSq = dx * dx + dy * dy;
+      pull = MAX_PULL * Math.exp(-distSq / (2 * SPREAD_SIGMA_SQ)) * attraction;
     }
 
-    const tickLen = BASE_TICK + Math.max(0, noise);
+    const tickLen = BASE_TICK + Math.max(0, noise) + pull;
     const x1 = CX + cos * BASE_RADIUS;
     const y1 = CY + sin * BASE_RADIUS;
     const x2 = CX + cos * (BASE_RADIUS + tickLen);
@@ -67,7 +89,7 @@ function buildTickPath(
 }
 
 export const RadialRecorder: React.FC<RadialRecorderProps> = React.memo(
-  ({ isRecording, currentLevel, onPress }) => {
+  ({ isRecording, currentLevel, onPress, magnetEnabled = false }) => {
     const levelRef = useRef(0);
     const isRecRef = useRef(false);
     const startRef = useRef(Date.now());
@@ -76,18 +98,89 @@ export const RadialRecorder: React.FC<RadialRecorderProps> = React.memo(
       orbitDeg: 0,
     });
 
+    /* ── touch tracking refs ── */
+    const viewRef = useRef<View>(null);
+    const layoutRef = useRef({ x: 0, y: 0 });
+    const touchXRef = useRef<number | null>(null);
+    const touchYRef = useRef<number | null>(null);
+    const touchActiveRef = useRef(false);
+    const attractionRef = useRef(0);
+    const recBlendRef = useRef(0);
+    const lastFrameRef = useRef(Date.now());
+
+    const magnetRef = useRef(false);
+
     useEffect(() => { levelRef.current = currentLevel; }, [currentLevel]);
     useEffect(() => { isRecRef.current = isRecording; }, [isRecording]);
+    useEffect(() => { magnetRef.current = magnetEnabled; }, [magnetEnabled]);
+
+    const handleLayout = useCallback(() => {
+      viewRef.current?.measureInWindow((x, y) => {
+        if (x !== undefined) layoutRef.current = { x, y };
+      });
+    }, []);
+
+    const updateTouchPosition = useCallback((e: GestureResponderEvent) => {
+      const { pageX, pageY } = e.nativeEvent;
+      touchXRef.current = pageX - layoutRef.current.x;
+      touchYRef.current = pageY - layoutRef.current.y;
+    }, []);
+
+    const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+      if (!magnetRef.current || isRecRef.current) return;
+      viewRef.current?.measureInWindow((x, y) => {
+        if (x !== undefined) layoutRef.current = { x, y };
+      });
+      updateTouchPosition(e);
+      touchActiveRef.current = true;
+    }, [updateTouchPosition]);
+
+    const handleTouchMove = useCallback((e: GestureResponderEvent) => {
+      if (!magnetRef.current || isRecRef.current) return;
+      updateTouchPosition(e);
+    }, [updateTouchPosition]);
+
+    const handleTouchEnd = useCallback(() => {
+      touchActiveRef.current = false;
+    }, []);
 
     useEffect(() => {
       let rafId: number;
       startRef.current = Date.now();
+      lastFrameRef.current = Date.now();
 
       const animate = () => {
-        const time = (Date.now() - startRef.current) * 0.002;
+        const now = Date.now();
+        const dt = Math.min((now - lastFrameRef.current) / 1000, 0.05);
+        lastFrameRef.current = now;
+
+        const time = (now - startRef.current) * 0.002;
         const rec = isRecRef.current;
-        const tickPath = buildTickPath(time, levelRef.current, rec);
-        const orbitDeg = rec ? (time / 120) * 360 : 0;
+
+        /* smooth recording crossfade */
+        const recTarget = rec ? 1 : 0;
+        const recAlpha = 1 - Math.exp(-REC_BLEND_K * dt);
+        recBlendRef.current += (recTarget - recBlendRef.current) * recAlpha;
+
+        /* magnetic attraction */
+        const canAttract = magnetRef.current && !rec;
+        if (!canAttract) touchActiveRef.current = false;
+        const target = touchActiveRef.current ? 1 : 0;
+        const k = touchActiveRef.current ? ENGAGE_K : DECAY_K;
+        const alpha = 1 - Math.exp(-k * dt);
+        attractionRef.current += (target - attractionRef.current) * alpha;
+        if (attractionRef.current < 0.001) attractionRef.current = 0;
+
+        const tickPath = buildTickPath(
+          time,
+          levelRef.current,
+          recBlendRef.current,
+          touchXRef.current,
+          touchYRef.current,
+          attractionRef.current,
+        );
+        const blend = recBlendRef.current;
+        const orbitDeg = blend > 0.01 ? (time / 120) * 360 * blend : 0;
         setFrame({ tickPath, orbitDeg });
         rafId = requestAnimationFrame(animate);
       };
@@ -159,7 +252,17 @@ export const RadialRecorder: React.FC<RadialRecorderProps> = React.memo(
       : colors.radialTickIdle;
 
     return (
-      <View style={styles.container}>
+      <View
+        ref={viewRef}
+        style={styles.container}
+        onLayout={handleLayout}
+        {...(magnetEnabled && {
+          onTouchStart: handleTouchStart,
+          onTouchMove: handleTouchMove,
+          onTouchEnd: handleTouchEnd,
+          onTouchCancel: handleTouchEnd,
+        })}
+      >
         <Svg width={SIZE} height={SIZE} style={styles.svg}>
           <Path
             d={frame.tickPath}

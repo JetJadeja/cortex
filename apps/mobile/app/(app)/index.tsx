@@ -131,6 +131,7 @@ export default function HomeScreen() {
           isRecording={isRecording}
           currentLevel={levels.length > 0 ? levels[levels.length - 1] : 0}
           onPress={handleToggle}
+          magnetEnabled
         />
         <View style={styles.timerSlot}>
           {isRecording && (
